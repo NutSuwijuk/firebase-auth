@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE Login Callback</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background-color: #06C755;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 auto 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .status.loading {
+            background-color: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #bbdefb;
+        }
+        .status.success {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .status.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #06C755;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .user-info {
+            display: none;
+            text-align: left;
+            margin-top: 20px;
+        }
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: block;
+        }
+        .user-detail {
+            margin: 10px 0;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #06C755;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: #05a045;
+        }
+        .error-details {
+            display: none;
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">L</div>
+        <h1>LINE Login Callback</h1>
+        
+        <div id="status" class="status loading">
+            <span class="spinner"></span>
+            Processing LINE login...
+        </div>
+
+        <div id="userInfo" class="user-info">
+            <h3>Login Successful!</h3>
+            <img id="userAvatar" class="user-avatar" src="" alt="User Avatar">
+            <div class="user-detail"><strong>Name:</strong> <span id="userName"></span></div>
+            <div class="user-detail"><strong>Email:</strong> <span id="userEmail"></span></div>
+            <div class="user-detail"><strong>LINE User ID:</strong> <span id="lineUserId"></span></div>
+            <div class="user-detail"><strong>Firebase UID:</strong> <span id="firebaseUid"></span></div>
+            <div class="user-detail"><strong>Status Message:</strong> <span id="statusMessage"></span></div>
+            <div class="user-detail"><strong>Login Time:</strong> <span id="loginTime"></span></div>
+            <div class="user-detail"><strong>Access Token:</strong> <span id="accessToken"></span></div>
+            <div class="user-detail"><strong>Custom Token:</strong> <span id="customToken"></span></div>
+            <a href="index-simple.html" class="btn">Back to Demo</a>
+        </div>
+
+        <div id="errorDetails" class="error-details"></div>
+    </div>
+
+    <script>
+        // Configuration
+        const SERVER_URL = 'http://localhost:3000';
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const state = urlParams.get('state');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔄 LINE callback page loaded');
+            console.log('📋 URL parameters:', { code, state, error, errorDescription });
+            console.log('🔍 Window opener:', window.opener ? 'Available' : 'Not available');
+            
+            if (error) {
+                console.log('❌ Error parameter found:', error);
+                handleError(error, errorDescription || 'Unknown error');
+            } else if (code && state) {
+                console.log('✅ Code and state parameters found');
+                // Check if this is opened in popup (for account linking) or direct access (for login)
+                if (window.opener) {
+                    console.log('🔄 This is for account linking (popup mode)');
+                    // This is for account linking - just send the code back to parent
+                    handleAccountLinking(code, state);
+                } else {
+                    console.log('🔄 This is for direct LINE login');
+                    // This is for direct LINE login
+                    processLineLogin(code, state);
+                }
+            } else {
+                console.log('❌ Missing required parameters');
+                handleError('missing_params', 'Missing authorization code or state parameter');
+            }
+        });
+
+        // Handle account linking (popup mode)
+        function handleAccountLinking(code, state) {
+            try {
+                console.log('🔄 Processing account linking with code:', code.substring(0, 10) + '...');
+                updateStatus('Authorization successful! Sending data to parent window...', 'success');
+                
+                // Send success message to parent window
+                if (window.opener) {
+                    const message = {
+                        type: 'LINE_AUTH_SUCCESS',
+                        code: code,
+                        state: state
+                    };
+                    
+                    console.log('📤 Sending message to parent:', message);
+                    window.opener.postMessage(message, window.location.origin);
+                    
+                    console.log('✅ Success message sent to parent window');
+                    
+                    // Close popup after a short delay
+                    setTimeout(() => {
+                        console.log('🔄 Closing popup window');
+                        window.close();
+                    }, 2000);
+                } else {
+                    console.error('❌ No opener window found');
+                    handleError('no_opener', 'No parent window found for account linking');
+                }
+                
+            } catch (error) {
+                console.error('❌ Account linking error:', error);
+                handleError('account_linking_failed', error.message);
+            }
+        }
+
+        // Process LINE login
+        async function processLineLogin(code, state) {
+            try {
+                console.log('Processing LINE login with code:', code.substring(0, 10) + '...');
+                updateStatus('Exchanging authorization code for token...', 'loading');
+
+                // Exchange code for token
+                const loginResponse = await fetch(`${SERVER_URL}/api/auth/line/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code, state })
+                });
+
+                console.log('Login response status:', loginResponse.status);
+                const loginData = await loginResponse.json();
+                console.log('Login response data:', loginData);
+                
+                if (!loginData.success) {
+                    throw new Error(loginData.error || 'Login failed');
+                }
+
+                // Store user data in localStorage
+                localStorage.setItem('lineUser', JSON.stringify(loginData.user));
+                localStorage.setItem('lineCustomToken', loginData.customToken);
+                localStorage.setItem('lineAccessToken', loginData.lineProfile.accessToken || '');
+                localStorage.setItem('lineProfile', JSON.stringify(loginData.lineProfile));
+                localStorage.setItem('idTokenData', JSON.stringify(loginData.idTokenData || {}));
+                localStorage.setItem('loginTimestamp', loginData.timestamp || new Date().toISOString());
+
+                // Display success
+                updateStatus('Login successful!', 'success');
+                displayUserInfo(loginData.user);
+
+                // Send message to parent window (if opened in popup)
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'LINE_AUTH_SUCCESS',
+                        code: code,
+                        state: state,
+                        user: loginData.user,
+                        customToken: loginData.customToken,
+                        lineProfile: loginData.lineProfile,
+                        idTokenData: loginData.idTokenData
+                    }, window.location.origin);
+                    
+                    // Close popup after a short delay
+                    setTimeout(() => {
+                        window.close();
+                    }, 2000);
+                }
+
+                // Auto-redirect to demo page after successful login
+                setTimeout(() => {
+                    window.location.href = 'index-simple.html';
+                }, 3000);
+
+            } catch (error) {
+                console.error('LINE login error:', error);
+                handleError('login_failed', error.message);
+            }
+        }
+
+        // Handle errors
+        function handleError(errorCode, errorMessage) {
+            console.error('❌ LINE callback error:', { errorCode, errorMessage });
+            updateStatus(`Login failed: ${errorMessage}`, 'error');
+            
+            // Show error details
+            const errorDetails = document.getElementById('errorDetails');
+            errorDetails.style.display = 'block';
+            errorDetails.innerHTML = `
+                <strong>Error Code:</strong> ${errorCode}<br>
+                <strong>Error Message:</strong> ${errorMessage}<br>
+                <strong>Timestamp:</strong> ${new Date().toISOString()}
+            `;
+
+            // Send error message to parent window
+            if (window.opener) {
+                console.log('📤 Sending error message to parent window');
+                window.opener.postMessage({
+                    type: 'LINE_AUTH_ERROR',
+                    error: errorCode,
+                    message: errorMessage
+                }, window.location.origin);
+                
+                // Close popup after sending error
+                setTimeout(() => {
+                    console.log('🔄 Closing popup due to error');
+                    window.close();
+                }, 2000);
+            } else {
+                // Auto-redirect to demo page after error (only if not in popup)
+                setTimeout(() => {
+                    window.location.href = 'index-simple.html';
+                }, 5000);
+            }
+        }
+
+        // Update status display
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            const spinner = type === 'loading' ? '<span class="spinner"></span>' : '';
+            
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `${spinner}${message}`;
+        }
+
+        // Display user information
+        function displayUserInfo(user) {
+            const userInfoDiv = document.getElementById('userInfo');
+            userInfoDiv.style.display = 'block';
+            
+            document.getElementById('userName').textContent = user.displayName || 'N/A';
+            document.getElementById('userEmail').textContent = user.email || 'N/A';
+            document.getElementById('lineUserId').textContent = user.lineUserId || 'N/A';
+            document.getElementById('firebaseUid').textContent = user.uid || 'N/A';
+            
+            // Get additional data from localStorage
+            const lineAccessToken = localStorage.getItem('lineAccessToken') || 'N/A';
+            const lineCustomToken = localStorage.getItem('lineCustomToken') || 'N/A';
+            const lineProfile = JSON.parse(localStorage.getItem('lineProfile') || '{}');
+            const idTokenData = JSON.parse(localStorage.getItem('idTokenData') || '{}');
+            
+            document.getElementById('statusMessage').textContent = lineProfile.statusMessage || 'N/A';
+            document.getElementById('loginTime').textContent = new Date().toLocaleString();
+            document.getElementById('accessToken').textContent = lineAccessToken.substring(0, 20) + '...' || 'N/A';
+            document.getElementById('customToken').textContent = lineCustomToken.substring(0, 20) + '...' || 'N/A';
+            
+            if (user.photoURL) {
+                document.getElementById('userAvatar').src = user.photoURL;
+            } else {
+                document.getElementById('userAvatar').src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjUiIGN5PSIyNSIgcj0iMjUiIGZpbGw9IiNEN0Q3RDciLz4KPHBhdGggZD0iTTI1IDMwQzMwLjUyMjggMzAgMzUgMjUuNTIyOCAzNSAyMEMzNSAxNC40NzcyIDMwLjUyMjggMTAgMjUgMTBDMTkuNDc3MiAxMCAxNSAxNC40NzcyIDE1IDIwQzE1IDI1LjUyMjggMTkuNDc3MiAzMCAyNSAzMFoiIGZpbGw9IiM5OTk5OTkiLz4KPHBhdGggZD0iTTQwIDQwQzQwIDMzLjM3MjYgMzMuNjI3NCAyOCAyNiAyOEMxOC4zNzI2IDI4IDEyIDMzLjM3MjYgMTIgNDBIMDQwWiIgZmlsbD0iIzk5OTk5OSIvPgo8L3N2Zz4K';
+            }
+        }
+
+        // Handle window close
+        window.addEventListener('beforeunload', function() {
+            console.log('🔄 Window closing, sending close message to parent');
+            // Send close message to parent window
+            if (window.opener) {
+                try {
+                    window.opener.postMessage({
+                        type: 'LINE_LOGIN_POPUP_CLOSED'
+                    }, window.location.origin);
+                } catch (error) {
+                    console.error('❌ Error sending close message:', error);
+                }
+            }
+        });
+
+        // Handle window focus/blur events
+        window.addEventListener('blur', function() {
+            console.log('🔄 Window lost focus');
+        });
+
+        window.addEventListener('focus', function() {
+            console.log('🔄 Window gained focus');
+        });
+
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            // ESC key to close popup
+            if (event.key === 'Escape' && window.opener) {
+                window.close();
+            }
+        });
+    </script>
+</body>
+</html> 

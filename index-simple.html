@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase + Backend Integration (Simple) - Account Linking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .auth-section {
+            margin-bottom: 30px;
+        }
+
+        .auth-section h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .button {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            margin: 5px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+        }
+
+        .button.google {
+            background: #4285F4;
+            color: white;
+        }
+
+        .button.google:hover {
+            background: #3367D6;
+        }
+
+        .button.line {
+            background: #00B900;
+            color: white;
+        }
+
+        .button.line:hover {
+            background: #009900;
+        }
+
+        .button.apple {
+            background: #000;
+            color: white;
+        }
+
+        .button.apple:hover {
+            background: #333;
+        }
+
+        .button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .button.secondary:hover {
+            background: #545b62;
+        }
+
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .user-info.show {
+            display: block;
+        }
+
+        .user-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .user-detail {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .user-detail strong {
+            min-width: 120px;
+            color: #555;
+        }
+
+        .profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+        }
+
+        .backend-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .login-form {
+            display: block;
+        }
+
+        /* Dialog Styles */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .dialog-overlay.show {
+            display: flex;
+        }
+
+        .dialog {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .dialog h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .dialog p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .dialog .email-highlight {
+            background: #fff3cd;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: 600;
+            color: #856404;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .button-container button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .button-container button.primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .button-container button.primary:hover {
+            background: #0056b3;
+        }
+
+        .button-container button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .button-container button.secondary:hover {
+            background: #545b62;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Provider Icons */
+        .provider-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            .button-container {
+                flex-direction: column;
+            }
+
+            .button-container button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔥 Firebase + Backend Integration (Simple)</h1>
+            <p>ทดสอบการเชื่อมต่อ Firebase Authentication กับ Backend API + Account Linking</p>
+        </div>
+
+        <div class="info">
+            <h3>📋 Setup Instructions:</h3>
+            <ol>
+                <li><strong>Start Backend:</strong> <code>node server.js</code> (port 3000)</li>
+                <li><strong>Firebase Config:</strong> ตรวจสอบ Firebase Console settings</li>
+                <li><strong>Authorized Domains:</strong> เพิ่ม localhost และ 127.0.0.1</li>
+                <li><strong>Google OAuth:</strong> เปิดใช้งานใน Firebase Console</li>
+                <li><strong>LINE Login:</strong> เปิดใช้งานใน Firebase Console</li>
+                <li><strong>Apple Sign In:</strong> เปิดใช้งานใน Firebase Console (ดู <a href="APPLE_SETUP_SIMPLE.md" target="_blank">คู่มือการตั้งค่า</a>)</li>
+            </ol>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="backendStatus" class="status warning show">
+            🔍 Checking backend status...
+        </div>
+
+        <div id="firebaseStatus" class="status warning show">
+            🔍 Checking Firebase connection...
+        </div>
+
+        <div id="lineStatus" class="status warning" style="display: none;">
+            🔍 LINE login status...
+        </div>
+        
+        <div id="lineLoginInstructions" class="info" style="display: none;">
+            <h4>📋 LINE Login Instructions:</h4>
+            <ul>
+                <li>✅ <strong>Do not close the popup window</strong> - Let it complete the authorization</li>
+                <li>✅ <strong>Allow popups</strong> - Make sure your browser allows popups for this site</li>
+                <li>✅ <strong>Wait patiently</strong> - The process may take a few moments</li>
+                <li>✅ <strong>Complete LINE authorization</strong> - Follow the steps in the popup window</li>
+            </ul>
+        </div>
+
+        <!-- User Information -->
+        <div id="userInfo" class="user-info">
+            <h3>👤 ข้อมูลผู้ใช้</h3>
+            <div class="user-detail">
+                <img id="userAvatar" class="profile-pic" src="" alt="User Avatar">
+                <div>
+                    <div class="user-detail">
+                        <strong>ชื่อ:</strong>
+                        <span id="userDisplayName"></span>
+                    </div>
+                    <div class="user-detail">
+                        <strong>อีเมล:</strong>
+                        <span id="userEmail"></span>
+                    </div>
+                    <div class="user-detail">
+                        <strong>Provider:</strong>
+                        <span id="userProviders"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="backend-info">
+                <h4>🔄 Backend Sync Status</h4>
+                <div id="backendSyncInfo"></div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button id="switchAccountBtn" class="button secondary" style="display: none;">
+                    🔄 Switch Google Account
+                </button>
+                <button id="logoutBtn" class="button secondary">
+                    🚪 Sign Out
+                </button>
+            </div>
+        </div>
+
+        <!-- Authentication Section -->
+        <div id="authSection" class="auth-section">
+            <h2>🔐 เข้าสู่ระบบ</h2>
+            <div class="button-group">
+                <button id="googleLoginBtn" class="button google">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDExLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K" alt="Google" class="provider-icon">
+                    🔑 Sign in with Google
+                </button>
+
+                <button id="lineLoginBtn" class="button line">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=" alt="LINE" class="provider-icon">
+                    🟩 Sign in with LINE
+                </button>
+                
+                <button id="appleLoginBtn" class="button apple">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE4LjcxIDE5LjVjLS4xOSAwLS4zOC0uMDctLjUyLS4yMWwtNC4yNC00LjI0Yy0uMjgtLjI4LS4yOC0uNzMgMC0xLjAxbDQuMjQtNC4yNGMuMjgtLjI4LjczLS4yOCAxLjAxIDBsNC4yNCA0LjI0Yy4yOC4yOC4yOC43MyAwIDEuMDFsLTQuMjQgNC4yNGMtLjE0LjE0LS4zMy4yMS0uNTIuMjFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuNSAyMS41Yy0uMTkgMC0uMzgtLjA3LS41Mi0uMjFsLTQuMjQtNC4yNGMtLjI4LS4yOC0uMjgtLjczIDAtMS4wMWw0LjI0LTQuMjRjLjI4LS4yOC43My0uMjggMS4wMSAwbDQuMjQgNC4yNGMuMjguMjguMjguNzMgMCAxLjAxbC00LjI0IDQuMjRjLS4xNC4xNC0uMzMuMjEtLjUyLjIxWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg==" alt="Apple" class="provider-icon">
+                    🍎 Sign in with Apple
+                </button>
+            </div>
+            
+            <div style="margin: 20px 0; text-align: center;">
+                <strong>OR</strong>
+            </div>
+            
+            <form id="emailLoginForm">
+                <div class="form-group">
+                    <label for="emailInput">Email:</label>
+                    <input type="email" id="emailInput" required>
+                </div>
+                <div class="form-group">
+                    <label for="passwordInput">Password:</label>
+                    <input type="password" id="passwordInput" required>
+                </div>
+                <button type="submit" class="button">📧 Sign in with Email</button>
+            </form>
+        </div>
+
+        <!-- Account Linking Section -->
+        <div id="linkingSection" class="auth-section" style="display: none;">
+            <h2>🔗 เชื่อมโยงบัญชี</h2>
+            <div class="button-group">
+                <button id="linkLineButton" class="button line">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=" alt="LINE" class="provider-icon">
+                    เชื่อมโยงกับ LINE
+                </button>
+                <button id="linkGoogleButton" class="button google">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDExLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K" alt="Google" class="provider-icon">
+                    เชื่อมโยงกับ Google
+                </button>
+            </div>
+        </div>
+
+        <div id="statusMessage" class="status" style="display: none;"></div>
+        <div id="successMessage" class="status success" style="display: none;"></div>
+        <div id="errorMessage" class="status error" style="display: none;"></div>
+    </div>
+
+    <!-- Account Linking Dialog -->
+    <div id="accountLinkingDialog" class="dialog-overlay">
+        <div class="dialog">
+            <h3>🔗 พบบัญชีที่ใช้อีเมลนี้อยู่แล้ว</h3>
+            <p>อีเมล <span id="conflictEmail" class="email-highlight"></span> ถูกใช้กับบัญชี Google แล้ว</p>
+            <p>เพื่อใช้ LINE ในการล็อกอินเข้าบัญชีเดียวกัน คุณต้องล็อกอินด้วย Google ก่อน</p>
+            
+            <div class="button-container">
+                <button id="cancelLinkingButton" class="secondary">ยกเลิก</button>
+                <button id="googleSignInForLinkingButton" class="primary">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDExLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K" alt="Google" class="provider-icon">
+                    ล็อกอินด้วย Google
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app-simple.js"></script>
+</body>
+</html> 

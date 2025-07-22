@@ -1,0 +1,1030 @@
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
+const admin = require('firebase-admin');
+const axios = require('axios');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static('.')); // Serve static files from current directory
+
+// Mock Database (In-memory storage)
+const users = [];
+const revokedTokens = [];
+const JWT_SECRET = 'your-secret-key-change-in-production';
+
+// LINE Login Configuration
+const LINE_CONFIG = {
+  CHANNEL_ID: "2007733529",                    // เปลี่ยนเป็น Channel ID ของคุณ
+  CHANNEL_SECRET: "4e3197d83a8d9836ae5794fda50b698a",  // เปลี่ยนเป็น Channel Secret ของคุณ
+  REDIRECT_URI: "http://localhost:3000/line-callback.html"
+};
+
+// Setup Firebase Admin (ใช้ serviceAccountKey.json หรือ env var)
+try {
+  admin.app();
+} catch (e) {
+  const serviceAccount = process.env.FIREBASE_ADMIN_KEY
+    ? JSON.parse(process.env.FIREBASE_ADMIN_KEY)
+    : require('./serviceAccountKey.json');
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
+
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+  if (revokedTokens.includes(token)) {
+    return res.status(401).json({ error: 'Token revoked' });
+  }
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// Routes
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend service is running',
+    timestamp: new Date().toISOString(),
+    usersCount: users.length
+  });
+});
+
+// Register new user
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, displayName } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Check if user already exists
+    const existingUser = users.find(user => user.email === email);
+    if (existingUser) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const newUser = {
+      id: uuidv4(),
+      email,
+      password: hashedPassword,
+      displayName: displayName || email,
+      createdAt: new Date().toISOString(),
+      emailVerified: false,
+      lastLoginAt: null
+    };
+
+    users.push(newUser);
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: newUser.id, 
+        email: newUser.email,
+        displayName: newUser.displayName
+      }, 
+      JWT_SECRET, 
+      { expiresIn: '24h' }
+    );
+
+    // Update last login
+    newUser.lastLoginAt = new Date().toISOString();
+
+    console.log(`✅ New user registered: ${email}`);
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        displayName: newUser.displayName,
+        emailVerified: newUser.emailVerified,
+        createdAt: newUser.createdAt
+      },
+      token
+    });
+
+  } catch (error) {
+    console.error('❌ Registration error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Login user
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Find user
+    const user = users.find(u => u.email === email);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email,
+        displayName: user.displayName
+      }, 
+      JWT_SECRET, 
+      { expiresIn: '24h' }
+    );
+
+    // Update last login
+    user.lastLoginAt = new Date().toISOString();
+
+    console.log(`✅ User logged in: ${email}`);
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt
+      },
+      token
+    });
+
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user profile (protected route)
+app.get('/api/auth/profile', authenticateToken, (req, res) => {
+  try {
+    const user = users.find(u => u.id === req.user.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user profile (protected route)
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  try {
+    const { displayName } = req.body;
+    const user = users.find(u => u.id === req.user.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (displayName) {
+      user.displayName = displayName;
+    }
+
+    console.log(`✅ Profile updated for: ${user.email}`);
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Profile update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Logout (client-side)
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+  console.log(`👤 User logged out: ${req.user.email}`);
+  res.json({ message: 'Logout successful' });
+});
+
+// Revoke token (server-side)
+app.post('/api/auth/revoke-token', authenticateToken, (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token && !revokedTokens.includes(token)) {
+    revokedTokens.push(token);
+  }
+  res.json({ message: 'Token revoked' });
+});
+
+// Get all users (for admin purposes - remove in production)
+app.get('/api/users', (req, res) => {
+  const usersList = users.map(user => ({
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt
+  }));
+  
+  res.json({ users: usersList, count: users.length });
+});
+
+// Sync user data from Firebase
+app.post('/api/auth/sync-user', async (req, res) => {
+  try {
+    const { firebase_uid, email, display_name, photo_url, email_verified, provider, last_login, id_token } = req.body;
+    
+    // Validate required fields
+    if (!firebase_uid || !email) {
+      return res.status(400).json({ error: 'firebase_uid and email are required' });
+    }
+    
+    // Log JWT token info (for debugging)
+    if (id_token) {
+      console.log('🔑 JWT Token received:', {
+        tokenLength: id_token.length,
+        tokenPreview: id_token.substring(0, 50) + '...',
+        provider: provider
+      });
+    }
+    
+    // Check if user exists in our system
+    // เราสามารถค้นหาได้ทั้งจาก firebase_uid หรือ email
+    const existingUser = users.find(user => 
+      user.firebase_uid === firebase_uid || user.email === email
+    );
+    
+    if (existingUser) {
+      // Update existing user
+      existingUser.displayName = display_name || existingUser.displayName;
+      existingUser.photoURL = photo_url || existingUser.photoURL;
+      existingUser.emailVerified = email_verified || existingUser.emailVerified;
+      existingUser.provider = provider || existingUser.provider;
+      existingUser.lastLoginAt = last_login || new Date().toISOString();
+      
+      console.log('✅ Updated existing user from Firebase:', existingUser.email);
+      res.json({ 
+        message: 'User updated successfully', 
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          displayName: existingUser.displayName,
+          provider: existingUser.provider
+        }
+      });
+    } else {
+      // Create new user
+      const newUser = {
+        id: uuidv4(), // Backend ID (timestamp)
+        firebase_uid: firebase_uid, // Firebase UID (from Firebase Auth)
+        email: email,
+        displayName: display_name || '',
+        photoURL: photo_url || '',
+        emailVerified: email_verified || false,
+        provider: provider || 'email',
+        createdAt: new Date().toISOString(),
+        lastLoginAt: last_login || new Date().toISOString(),
+        password: 'firebase-auth' // Placeholder for Firebase users
+      };
+      
+      users.push(newUser);
+      
+      console.log('✅ Created new user from Firebase:', newUser.email);
+      res.json({ 
+        message: 'User created successfully', 
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          displayName: newUser.displayName,
+          provider: newUser.provider
+        }
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error syncing user:', error);
+    res.status(500).json({ error: 'Failed to sync user' });
+  }
+});
+
+// Get user profile by Firebase UID
+app.get('/api/auth/profile-by-firebase/:firebaseUid', (req, res) => {
+  try {
+    const { firebaseUid } = req.params;
+    const user = users.find(u => u.firebase_uid === firebaseUid);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        firebase_uid: user.firebase_uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        emailVerified: user.emailVerified,
+        provider: user.provider,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Profile by Firebase UID error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user profile by Firebase UID
+app.put('/api/auth/update-profile-by-firebase/:firebaseUid', async (req, res) => {
+  try {
+    const { firebaseUid } = req.params;
+    const { displayName, photoURL } = req.body;
+    
+    const user = users.find(u => u.firebase_uid === firebaseUid);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (displayName) {
+      user.displayName = displayName;
+    }
+    
+    if (photoURL) {
+      user.photoURL = photoURL;
+    }
+
+    console.log(`✅ Profile updated for Firebase user: ${user.email}`);
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        firebase_uid: user.firebase_uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        provider: user.provider
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Profile update by Firebase UID error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Endpoint: Revoke user refresh tokens (force logout)
+app.post('/api/auth/revoke-user', async (req, res) => {
+  try {
+    const { uid, email } = req.body;
+    let userId = uid;
+    // ถ้าไม่มี uid แต่มี email ให้ค้นหา uid จาก email
+    if (!userId && email) {
+      try {
+        const userRecord = await admin.auth().getUserByEmail(email);
+        userId = userRecord.uid;
+      } catch (err) {
+        return res.status(404).json({ error: 'User not found in Firebase' });
+      }
+    }
+    if (!userId) {
+      return res.status(400).json({ error: 'uid or email required' });
+    }
+    await admin.auth().revokeRefreshTokens(userId);
+    res.json({ message: 'Refresh tokens revoked', uid: userId });
+  } catch (error) {
+    // แก้ไข: ส่ง JSON error เสมอ ไม่ส่ง HTML
+    console.error('❌ Error revoking user:', error.message);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// ========================================
+// LINE Login Routes
+// ========================================
+
+/**
+ * LINE Login - Get Authorization URL
+ */
+app.get('/api/auth/line/auth-url', async (req, res) => {
+  try {
+    const state = Math.random().toString(36).substring(7);
+    const authUrl = `https://access.line.me/oauth2/v2.1/authorize?` +
+      `response_type=code&` +
+      `client_id=${LINE_CONFIG.CHANNEL_ID}&` +
+      `redirect_uri=${encodeURIComponent(LINE_CONFIG.REDIRECT_URI)}&` +
+      `state=${state}&` +
+      `scope=profile%20openid%20email`;
+
+    console.log("Generated LINE auth URL", { state });
+
+    res.json({
+      success: true,
+      authUrl,
+      state
+    });
+  } catch (error) {
+    console.error("Error generating LINE auth URL:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate authorization URL"
+    });
+  }
+});
+
+/**
+ * LINE Login - Exchange Code for Token
+ */
+app.post('/api/auth/line/login', async (req, res) => {
+  try {
+    const { code, state } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        error: "Authorization code is required"
+      });
+    }
+
+    console.log("Processing LINE login", { 
+      code: code.substring(0, 10) + '...', 
+      state,
+      body: req.body 
+    });
+
+    // Step 1: Exchange code for access token
+    const tokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/token', 
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: LINE_CONFIG.REDIRECT_URI,
+        client_id: LINE_CONFIG.CHANNEL_ID,
+        client_secret: LINE_CONFIG.CHANNEL_SECRET
+      }), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+
+    const { access_token, id_token } = tokenResponse.data;
+
+    // Step 2: Get user profile from LINE
+    const profileResponse = await axios.get('https://api.line.me/v2/profile', {
+      headers: {
+        'Authorization': `Bearer ${access_token}`
+      }
+    });
+
+    const lineProfile = profileResponse.data;
+
+    // Step 3: Verify ID token (optional but recommended)
+    const idTokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/verify', 
+      new URLSearchParams({
+        id_token: id_token,
+        client_id: LINE_CONFIG.CHANNEL_ID
+      }), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+
+    const idTokenData = idTokenResponse.data;
+
+    // Step 4: Create or update Firebase user
+    const firebaseUser = await createOrUpdateFirebaseUser(lineProfile, idTokenData);
+
+    // Step 5: Generate custom token for Firebase Auth
+    const customToken = await admin.auth().createCustomToken(firebaseUser.uid, {
+      provider: 'line.com',
+      lineUserId: lineProfile.userId,
+      lineDisplayName: lineProfile.displayName,
+      email: idTokenData.email || null
+    });
+
+    console.log("LINE login successful", { 
+      lineUserId: lineProfile.userId,
+      firebaseUid: firebaseUser.uid,
+      lastSignInTime: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      user: {
+        uid: firebaseUser.uid,
+        displayName: firebaseUser.displayName,
+        email: firebaseUser.email,
+        photoURL: firebaseUser.photoURL,
+        provider: 'line',
+        lineUserId: lineProfile.userId
+      },
+      customToken,
+      lineProfile: {
+        userId: lineProfile.userId,
+        displayName: lineProfile.displayName,
+        pictureUrl: lineProfile.pictureUrl,
+        statusMessage: lineProfile.statusMessage,
+        accessToken: access_token,
+        idToken: id_token,
+        expiresIn: tokenResponse.data.expires_in,
+        refreshToken: tokenResponse.data.refresh_token,
+        tokenType: tokenResponse.data.token_type
+      },
+      idTokenData: {
+        iss: idTokenData.iss,
+        sub: idTokenData.sub,
+        aud: idTokenData.aud,
+        exp: idTokenData.exp,
+        iat: idTokenData.iat,
+        email: idTokenData.email,
+        emailVerified: idTokenData.email_verified,
+        name: idTokenData.name,
+        picture: idTokenData.picture
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("LINE login error:", error);
+    console.error("Error details:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      config: error.config
+    });
+    res.status(500).json({
+      success: false,
+      error: "LINE login failed",
+      details: error.message,
+      lineError: error.response?.data
+    });
+  }
+});
+
+/**
+ * LINE Login - Verify Token
+ */
+app.post('/api/auth/line/verify', async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        error: "Access token is required"
+      });
+    }
+
+    // Verify token with LINE API
+    const profileResponse = await axios.get('https://api.line.me/v2/profile', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const lineProfile = profileResponse.data;
+
+    // Find Firebase user by LINE user ID
+    const firebaseUser = await findFirebaseUserByLineId(lineProfile.userId);
+
+    if (!firebaseUser) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        uid: firebaseUser.uid,
+        displayName: firebaseUser.displayName,
+        email: firebaseUser.email,
+        photoURL: firebaseUser.photoURL,
+        provider: 'line',
+        lineUserId: lineProfile.userId
+      },
+      lineProfile
+    });
+
+  } catch (error) {
+    console.error("Token verification error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Token verification failed",
+      details: error.message
+    });
+  }
+});
+
+/**
+ * LINE Login - Link Account
+ * สำหรับเชื่อมต่อ LINE account กับ Firebase account ที่มีอยู่แล้ว
+ */
+app.post('/api/auth/line/link-account', async (req, res) => {
+  try {
+    const { currentUserUid, lineUser, lineProfile, idTokenData } = req.body;
+
+    if (!currentUserUid || !lineUser || !lineProfile) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required parameters for account linking"
+      });
+    }
+
+    console.log("Processing LINE account linking", { 
+      currentUserUid,
+      lineUserId: lineProfile.userId,
+      email: lineUser.email
+    });
+
+    // ตรวจสอบว่าผู้ใช้ปัจจุบันมีอยู่จริงใน Firebase
+    let currentFirebaseUser;
+    try {
+      currentFirebaseUser = await admin.auth().getUser(currentUserUid);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        error: "Current user not found in Firebase"
+      });
+    }
+
+    // ตรวจสอบว่า email ตรงกัน
+    if (currentFirebaseUser.email !== lineUser.email) {
+      return res.status(400).json({
+        success: false,
+        error: "Email mismatch between current account and LINE account"
+      });
+    }
+
+    // ตรวจสอบว่ามี LINE account อื่นที่ใช้ email เดียวกันหรือไม่
+    let existingLineUser;
+    try {
+      // ค้นหาผู้ใช้ที่มี LINE provider และ email เดียวกัน
+      const listUsersResult = await admin.auth().listUsers();
+      existingLineUser = listUsersResult.users.find(user => 
+        user.email === lineUser.email && 
+        user.providerData.some(provider => provider.providerId === 'oidc.line')
+      );
+    } catch (error) {
+      console.log("No existing LINE user found with same email");
+    }
+
+    let finalUserUid = currentUserUid;
+
+    if (existingLineUser && existingLineUser.uid !== currentUserUid) {
+      // มี LINE account อื่นอยู่แล้ว ให้ลบออกและใช้ current user
+      console.log("Found existing LINE user, will delete and use current user");
+      try {
+        await admin.auth().deleteUser(existingLineUser.uid);
+        console.log("Deleted existing LINE user:", existingLineUser.uid);
+      } catch (deleteError) {
+        console.error("Error deleting existing LINE user:", deleteError);
+      }
+    }
+
+    // อัพเดท Firebase user ด้วยข้อมูล LINE
+    const updateData = {
+      displayName: lineUser.displayName || currentFirebaseUser.displayName,
+      photoURL: lineUser.photoURL || currentFirebaseUser.photoURL,
+      emailVerified: lineUser.emailVerified || currentFirebaseUser.emailVerified
+    };
+
+    // เพิ่ม custom claims สำหรับ LINE
+    const customClaims = {
+      lineUserId: lineProfile.userId,
+      lineDisplayName: lineProfile.displayName,
+      linkedProviders: [...(currentFirebaseUser.customClaims?.linkedProviders || []), 'line'],
+      lastLinkedAt: new Date().toISOString()
+    };
+
+    await admin.auth().updateUser(currentUserUid, updateData);
+    await admin.auth().setCustomUserClaims(currentUserUid, customClaims);
+
+    // สร้าง custom token สำหรับผู้ใช้ที่ link แล้ว
+    const customToken = await admin.auth().createCustomToken(currentUserUid, {
+      provider: 'linked_account',
+      lineUserId: lineProfile.userId,
+      lineDisplayName: lineProfile.displayName,
+      email: lineUser.email,
+      linkedAt: new Date().toISOString()
+    });
+
+    console.log("LINE account linking successful", { 
+      currentUserUid,
+      lineUserId: lineProfile.userId,
+      email: lineUser.email,
+      linkedAt: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      user: {
+        uid: currentUserUid,
+        displayName: updateData.displayName,
+        email: lineUser.email,
+        photoURL: updateData.photoURL,
+        provider: 'linked_account',
+        lineUserId: lineProfile.userId,
+        linkedProviders: customClaims.linkedProviders
+      },
+      customToken,
+      lineProfile: {
+        userId: lineProfile.userId,
+        displayName: lineProfile.displayName,
+        pictureUrl: lineProfile.pictureUrl,
+        statusMessage: lineProfile.statusMessage,
+        accessToken: lineProfile.accessToken,
+        idToken: lineProfile.idToken,
+        expiresIn: lineProfile.expiresIn,
+        refreshToken: lineProfile.refreshToken,
+        tokenType: lineProfile.tokenType
+      },
+      idTokenData: {
+        iss: idTokenData.iss,
+        sub: idTokenData.sub,
+        aud: idTokenData.aud,
+        exp: idTokenData.exp,
+        iat: idTokenData.iat,
+        email: idTokenData.email,
+        emailVerified: idTokenData.emailVerified,
+        name: idTokenData.name,
+        picture: idTokenData.picture
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("LINE account linking error:", error);
+    console.error("Error details:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    res.status(500).json({
+      success: false,
+      error: "LINE account linking failed",
+      details: error.message,
+      lineError: error.response?.data
+    });
+  }
+});
+
+/**
+ * LINE Login - Logout
+ */
+app.post('/api/auth/line/logout', async (req, res) => {
+  try {
+    const { accessToken, firebaseUid } = req.body;
+
+    if (accessToken) {
+      // Revoke LINE access token
+      await axios.post('https://api.line.me/oauth2/v2.1/revoke', 
+        new URLSearchParams({
+          access_token: accessToken,
+          client_id: LINE_CONFIG.CHANNEL_ID,
+          client_secret: LINE_CONFIG.CHANNEL_SECRET
+        }), {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        }
+      );
+    }
+
+    if (firebaseUid) {
+      // Revoke Firebase refresh tokens
+      await admin.auth().revokeRefreshTokens(firebaseUid);
+    }
+
+    console.log("LINE logout successful", { firebaseUid });
+
+    res.json({
+      success: true,
+      message: "Logout successful"
+    });
+
+  } catch (error) {
+    console.error("LINE logout error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Logout failed",
+      details: error.message
+    });
+  }
+});
+
+/**
+ * LINE Login Callback Handler
+ */
+app.get('/api/auth/line/callback', async (req, res) => {
+  try {
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      console.error("LINE authorization error:", error, error_description);
+      return res.redirect(`/line-callback.html?error=${error}&error_description=${error_description}`);
+    }
+
+    if (!code || !state) {
+      return res.redirect('/line-callback.html?error=missing_params&error_description=Missing authorization code or state parameter');
+    }
+
+    // Redirect to callback page with code and state
+    res.redirect(`/line-callback.html?code=${code}&state=${state}`);
+
+  } catch (error) {
+    console.error("LINE callback error:", error);
+    res.redirect(`/line-callback.html?error=callback_error&error_description=${error.message}`);
+  }
+});
+
+// Helper Functions for LINE Login
+
+/**
+ * Create or update Firebase user
+ */
+async function createOrUpdateFirebaseUser(lineProfile, idTokenData) {
+  try {
+    // Check if user already exists by LINE user ID
+    let firebaseUser = await findFirebaseUserByLineId(lineProfile.userId);
+
+    if (firebaseUser) {
+      // Update existing user
+      await admin.auth().updateUser(firebaseUser.uid, {
+        displayName: lineProfile.displayName,
+        photoURL: lineProfile.pictureUrl,
+        email: idTokenData.email || firebaseUser.email,
+        lastSignInTime: new Date().toISOString()
+      });
+
+      // Update custom claims
+      await admin.auth().setCustomUserClaims(firebaseUser.uid, {
+        provider: 'line.com',
+        lineUserId: lineProfile.userId,
+        lineDisplayName: lineProfile.displayName,
+        linePictureUrl: lineProfile.pictureUrl,
+        lineStatusMessage: lineProfile.statusMessage,
+        email: idTokenData.email || firebaseUser.email,
+        emailVerified: !!idTokenData.email,
+        signInProvider: 'line.com',
+        lastSignInTime: new Date().toISOString(),
+        lastSignInAt: new Date().toISOString()
+      });
+
+      console.log("Updated existing Firebase user", { uid: firebaseUser.uid });
+      return firebaseUser;
+    }
+
+    // Create new user
+    const userRecord = await admin.auth().createUser({
+      email: idTokenData.email,
+      displayName: lineProfile.displayName,
+      photoURL: lineProfile.pictureUrl,
+      emailVerified: !!idTokenData.email,
+      disabled: false
+    });
+
+    // Update lastSignInTime for new user
+    await admin.auth().updateUser(userRecord.uid, {
+      lastSignInTime: new Date().toISOString()
+    });
+
+    // Set custom claims
+    await admin.auth().setCustomUserClaims(userRecord.uid, {
+      provider: 'line.com',
+      lineUserId: lineProfile.userId,
+      lineDisplayName: lineProfile.displayName,
+      linePictureUrl: lineProfile.pictureUrl,
+      lineStatusMessage: lineProfile.statusMessage,
+      email: idTokenData.email || null,
+      emailVerified: !!idTokenData.email,
+      signInProvider: 'line.com',
+      lastSignInTime: new Date().toISOString()
+    });
+
+    console.log("Created new Firebase user", { uid: userRecord.uid });
+    return userRecord;
+
+  } catch (error) {
+    console.error("Error creating/updating Firebase user:", error);
+    throw error;
+  }
+}
+
+/**
+ * Find Firebase user by LINE user ID
+ */
+async function findFirebaseUserByLineId(lineUserId) {
+  try {
+    console.log(`🔍 Searching for Firebase user with LINE User ID: ${lineUserId}`);
+    
+    // This is a simplified approach. In production, you might want to store
+    // LINE user ID to Firebase UID mapping in Firestore
+    const listUsersResult = await admin.auth().listUsers();
+    console.log(`📊 Found ${listUsersResult.users.length} total Firebase users`);
+    
+    for (const userRecord of listUsersResult.users) {
+      const customClaims = userRecord.customClaims || {};
+      console.log(`👤 Checking user: ${userRecord.uid}, Custom Claims:`, customClaims);
+      
+      if (customClaims.lineUserId === lineUserId) {
+        console.log(`✅ Found matching user: ${userRecord.uid}`);
+        return userRecord;
+      }
+    }
+    
+    console.log(`❌ No user found with LINE User ID: ${lineUserId}`);
+    return null;
+  } catch (error) {
+    console.error("Error finding Firebase user by LINE ID:", error);
+    throw error;
+  }
+}
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🔐 Auth endpoints:`);
+  console.log(`   POST /api/auth/register - Register new user`);
+  console.log(`   POST /api/auth/login - Login user`);
+  console.log(`   GET  /api/auth/profile - Get user profile`);
+  console.log(`   PUT  /api/auth/profile - Update user profile`);
+  console.log(`   POST /api/auth/logout - Logout user`);
+  console.log(`🟩 LINE Login endpoints:`);
+  console.log(`   GET  /api/auth/line/auth-url - Get LINE authorization URL`);
+  console.log(`   POST /api/auth/line/login - Exchange code for token`);
+  console.log(`   POST /api/auth/line/verify - Verify LINE token`);
+  console.log(`   POST /api/auth/line/logout - LINE logout`);
+  console.log(`   GET  /api/auth/line/callback - LINE callback handler`);
+  console.log(`🔄 Firebase sync endpoints:`);
+  console.log(`   POST /api/auth/sync-user - Sync Firebase user data`);
+  console.log(`   GET  /api/auth/profile-by-firebase/:uid - Get profile by Firebase UID`);
+  console.log(`   PUT  /api/auth/update-profile-by-firebase/:uid - Update profile by Firebase UID`);
+  console.log(`👥 Users endpoint: GET /api/users`);
+  console.log(`👥 Revoke user endpoint: POST /api/auth/revoke-user`);
+}); 
