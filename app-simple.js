@@ -1243,7 +1243,7 @@ if (cancelLinkingButton) {
 }
 
 if (googleSignInForLinkingButton) {
-    googleSignInForLinkingButton.addEventListener('click', handleGoogleSignInForLinking);
+            googleSignInForLinkingButton.addEventListener('click', handleGoogleSignInForLinkingUI);
 }
 
 if (linkLineButton) {
@@ -1303,8 +1303,8 @@ async function handleLineLogin() {
     }
 }
 
-// Google Sign In for Linking Handler
-async function handleGoogleSignInForLinking() {
+// Google Sign In for Linking Handler (UI Version)
+async function handleGoogleSignInForLinkingUI() {
     try {
         showStatusMessage('กำลังล็อกอินด้วย Google เพื่อเชื่อมโยงบัญชี...', 'info');
         hideAccountLinkingDialog();

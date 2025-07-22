@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -18,22 +19,60 @@ app.use(express.static('.')); // Serve static files from current directory
 // Mock Database (In-memory storage)
 const users = [];
 const revokedTokens = [];
-const JWT_SECRET = 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // LINE Login Configuration
 const LINE_CONFIG = {
-  CHANNEL_ID: "2007733529",                    // เปลี่ยนเป็น Channel ID ของคุณ
-  CHANNEL_SECRET: "4e3197d83a8d9836ae5794fda50b698a",  // เปลี่ยนเป็น Channel Secret ของคุณ
-  REDIRECT_URI: "http://localhost:3000/line-callback.html"
+  CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
+  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
+  REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://localhost:3000/line-callback.html"
 };
 
-// Setup Firebase Admin (ใช้ serviceAccountKey.json หรือ env var)
+// Setup Firebase Admin with environment variables
 try {
   admin.app();
 } catch (e) {
-  const serviceAccount = process.env.FIREBASE_ADMIN_KEY
-    ? JSON.parse(process.env.FIREBASE_ADMIN_KEY)
-    : require('./serviceAccountKey.json');
+  let serviceAccount;
+  
+  // Priority: Environment variables first
+  if (process.env.FIREBASE_ADMIN_KEY) {
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_KEY);
+      console.log('✅ Using Firebase Admin credentials from environment variables');
+    } catch (error) {
+      console.error('❌ Error parsing FIREBASE_ADMIN_KEY from environment:', error.message);
+      process.exit(1);
+    }
+  } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+    // Alternative: Individual environment variables
+    serviceAccount = {
+      type: "service_account",
+      project_id: process.env.FIREBASE_PROJECT_ID,
+      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+      private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      client_id: process.env.FIREBASE_CLIENT_ID,
+      auth_uri: "https://accounts.google.com/o/oauth2/auth",
+      token_uri: "https://oauth2.googleapis.com/token",
+      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+      client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+      universe_domain: "googleapis.com"
+    };
+    console.log('✅ Using Firebase Admin credentials from individual environment variables');
+  } else {
+    // Fallback: Local service account file
+    try {
+      serviceAccount = require('./serviceAccountKey.json');
+      console.log('✅ Using Firebase Admin credentials from local serviceAccountKey.json');
+    } catch (error) {
+      console.error('❌ No Firebase Admin credentials found. Please set environment variables or provide serviceAccountKey.json');
+      console.error('Required environment variables:');
+      console.error('- FIREBASE_ADMIN_KEY (JSON string) OR');
+      console.error('- FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL');
+      process.exit(1);
+    }
+  }
+  
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
