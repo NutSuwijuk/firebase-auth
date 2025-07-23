@@ -79,6 +79,9 @@ checkBackendHealth().then(isAvailable => {
 // ตรวจสอบ pending LINE link เมื่อโหลดหน้า
 setTimeout(checkPendingLineLink, 1000);
 
+// ตรวจสอบ LINE authorization callback เมื่อโหลดหน้า
+setTimeout(checkLineAuthCallback, 500);
+
 // Handle user state changes
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -295,281 +298,39 @@ if (lineLoginBtn) {
                 lineStatus.className = 'status success';
             }
 
-            // ขั้นตอนที่ 2: เปิด popup window สำหรับ LINE authorization
-            console.log('🪟 Opening popup window with URL:', authData.authUrl.substring(0, 100) + '...');
-            
-            const popup = window.open(
-                authData.authUrl,
-                'lineLogin',
-                'width=500,height=600,scrollbars=yes,resizable=yes,location=yes,status=yes,toolbar=no,menubar=no,centerscreen=yes'
-            );
-
-            // ตรวจสอบว่า popup เปิดสำเร็จหรือไม่
-            if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-                throw new Error('Popup blocked by browser. Please allow popups for this site and try again.');
-            }
-
-            console.log('✅ Popup window opened successfully');
-            
-            // พยายาม focus popup
-            try {
-                popup.focus();
-            } catch (error) {
-                console.log('⚠️ Cannot focus popup (security policy)');
-            }
+            // ขั้นตอนที่ 2: Redirect ไปยัง LINE authorization page
+            console.log('🔄 Redirecting to LINE authorization page:', authData.authUrl.substring(0, 100) + '...');
             
             if (lineStatus) {
-                lineStatus.textContent = '🪟 Popup opened, waiting for authorization... (timeout: 10 minutes)';
-            }
-
-            // รอผลลัพธ์จาก popup
-            const result = await new Promise((resolve, reject) => {
-                let messageHandler = null;
-                let closedCheckInterval = null;
-                let timeoutId = null;
-                let isResolved = false;
-                let timeLeft = 600; // 10 minutes in seconds
-
-                // ตั้ง timeout 10 นาที (เพิ่มจาก 5 นาที)
-                timeoutId = setTimeout(() => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    console.log('⏰ LINE login timeout (10 minutes)');
-                    if (closedCheckInterval) clearInterval(closedCheckInterval);
-                    if (messageHandler) window.removeEventListener('message', messageHandler);
-                    if (popup && !popup.closed) popup.close();
-                    reject(new Error('LINE login timeout after 10 minutes. Please try again.'));
-                }, 600000); // 10 minutes
-
-                // ตรวจสอบว่า popup ถูกปิดหรือไม่ และอัพเดทเวลาที่เหลือ
-                closedCheckInterval = setInterval(() => {
-                    if (isResolved) return;
-                    
-                    // อัพเดทเวลาที่เหลือ
-                    timeLeft--;
-                    const minutes = Math.floor(timeLeft / 60);
-                    const seconds = timeLeft % 60;
-                    
-                    if (lineStatus) {
-                        lineStatus.textContent = `🪟 Popup opened, waiting for authorization... (timeout: ${minutes}:${seconds.toString().padStart(2, '0')})`;
-                    }
-                    
-                    try {
-                        if (popup.closed) {
-                            console.log('🔄 Popup window was closed by user');
-                            isResolved = true;
-                            clearInterval(closedCheckInterval);
-                            if (messageHandler) window.removeEventListener('message', messageHandler);
-                            clearTimeout(timeoutId);
-                            reject(new Error('LINE login was cancelled by user'));
-                        }
-                    } catch (error) {
-                        console.log('⚠️ Error checking popup status:', error);
-                        // ถ้าไม่สามารถตรวจสอบ popup ได้ ให้รอต่อไป
-                    }
-                }, 1000);
-
-                // รับฟังข้อความจาก popup
-                messageHandler = function handleMessage(event) {
-                    if (isResolved) return;
-                    
-                    console.log('📨 Received message from popup:', event.data);
-                    
-                    // ตรวจสอบ origin
-                    if (event.origin !== window.location.origin) {
-                        console.log('⚠️ Ignoring message from different origin:', event.origin);
-                        return;
-                    }
-                    
-                    if (event.data.type === 'LINE_AUTH_SUCCESS') {
-                        console.log('✅ LINE auth success received');
-                        isResolved = true;
-                        clearInterval(closedCheckInterval);
-                        clearTimeout(timeoutId);
-                        window.removeEventListener('message', messageHandler);
-                        if (popup && !popup.closed) popup.close();
-                        resolve(event.data);
-                    } else if (event.data.type === 'LINE_AUTH_ERROR') {
-                        console.log('❌ LINE auth error received:', event.data.message);
-                        isResolved = true;
-                        clearInterval(closedCheckInterval);
-                        clearTimeout(timeoutId);
-                        window.removeEventListener('message', messageHandler);
-                        if (popup && !popup.closed) popup.close();
-                        reject(new Error(event.data.message || 'LINE authentication failed'));
-                    } else if (event.data.type === 'LINE_LOGIN_POPUP_CLOSED') {
-                        console.log('ℹ️ LINE popup closed by user');
-                        isResolved = true;
-                        clearInterval(closedCheckInterval);
-                        clearTimeout(timeoutId);
-                        window.removeEventListener('message', messageHandler);
-                        reject(new Error('LINE login was cancelled by user'));
-                    } else if (event.data.type === 'LINE_LOGIN_CANCELLED') {
-                        console.log('ℹ️ LINE login cancelled by user');
-                        isResolved = true;
-                        clearInterval(closedCheckInterval);
-                        clearTimeout(timeoutId);
-                        window.removeEventListener('message', messageHandler);
-                        if (popup && !popup.closed) popup.close();
-                        reject(new Error('LINE login was cancelled by user'));
-                    }
-                };
-
-                window.addEventListener('message', messageHandler);
-                
-                // เพิ่มการตรวจสอบ popup focus
-                const focusCheckInterval = setInterval(() => {
-                    if (isResolved) {
-                        clearInterval(focusCheckInterval);
-                        return;
-                    }
-                    
-                    try {
-                        if (popup && !popup.closed) {
-                            // พยายาม focus popup เพื่อให้ผู้ใช้เห็น
-                            popup.focus();
-                        }
-                    } catch (error) {
-                        // ไม่สามารถ focus ได้ (อาจเป็นเพราะ security policy)
-                    }
-                }, 2000);
-            });
-
-            console.log('✅ LINE authorization successful, processing login...');
-
-            // ขั้นตอนที่ 3: แลกเปลี่ยน authorization code เป็น token
-            const loginResponse = await fetch('http://localhost:3000/api/auth/line/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    code: result.code,
-                    state: result.state
-                })
-            });
-
-            const loginData = await loginResponse.json();
-            
-            if (!loginData.success) {
-                throw new Error(loginData.error || 'LINE login failed');
-            }
-
-            console.log('✅ LINE login successful:', loginData.user);
-
-            // ขั้นตอนที่ 4: เข้าสู่ระบบ Firebase ด้วย custom token
-            if (loginData.customToken) {
-                try {
-                    const userCredential = await signInWithCustomToken(auth, loginData.customToken);
-                    console.log('✅ Firebase sign in with custom token successful:', userCredential.user);
-                } catch (firebaseError) {
-                    console.log('🔍 Firebase sign in error:', firebaseError);
-                    
-                    // Case: linkWithCredentials - เมื่อมี Firebase account อยู่แล้วด้วย email เดียวกัน
-                    if (firebaseError.code === 'auth/account-exists-with-different-credential' || 
-                        firebaseError.code === 'auth/email-already-in-use') {
-                        
-                        console.log('🔄 Detected existing Firebase account with same email, attempting to link accounts...');
-                        
-                        // ตรวจสอบว่า email นี้ใช้ provider อะไรบ้าง
-                        const providers = await fetchSignInMethodsForEmail(auth, loginData.user.email);
-                        console.log('📋 Available providers for email:', providers);
-                        
-                        // แสดงข้อความแจ้งเตือนผู้ใช้
-                        if (errorMessage) {
-                            const providerText = providers.includes('google.com') ? 'Google' : 
-                                               providers.includes('password') ? 'Email/Password' : 
-                                               providers.join(', ');
-                            
-                            errorMessage.innerHTML = `
-                                <div style="margin-bottom: 10px;">
-                                    <strong>⚠️ Account Link Required</strong><br>
-                                    Email ${loginData.user.email} already exists with ${providerText} provider.<br>
-                                    Please sign in with your existing account first, then we'll link your LINE account.
-                                </div>
-                                <div style="margin-bottom: 10px;">
-                                    <button id="linkAccountsBtn" class="button" style="background-color: #28a745; margin-right: 10px;">
-                                        🔗 Link LINE Account to Existing Account
-                                    </button>
-                                    ${providers.includes('google.com') ? `
-                                    <button id="googleSignInBtn" class="button" style="background-color: #4285f4;">
-                                        🔐 Sign in with Google First
-                                    </button>
-                                    ` : ''}
-                                </div>
-                            `;
-                            errorMessage.style.display = 'block';
-                            
-                            // เพิ่ม event listener สำหรับปุ่ม link accounts
-                            document.getElementById('linkAccountsBtn').addEventListener('click', async () => {
-                                try {
-                                    await handleAccountLinking(loginData);
-                                } catch (linkError) {
-                                    console.error('❌ Account linking failed:', linkError);
-                                    if (errorMessage) {
-                                        errorMessage.textContent = `Account linking failed: ${linkError.message}`;
-                                    }
-                                }
-                            });
-                            
-                            // เพิ่ม event listener สำหรับปุ่ม Google sign in (ถ้ามี)
-                            const googleSignInBtn = document.getElementById('googleSignInBtn');
-                            if (googleSignInBtn) {
-                                googleSignInBtn.addEventListener('click', async () => {
-                                    try {
-                                        await handleGoogleSignInForLinking(loginData);
-                                    } catch (googleError) {
-                                        console.error('❌ Google sign in for linking failed:', googleError);
-                                        if (errorMessage) {
-                                            errorMessage.textContent = `Google sign in failed: ${googleError.message}`;
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                        
-                        // เก็บข้อมูล LINE สำหรับการ link ภายหลัง
-                        localStorage.setItem('pendingLineLink', JSON.stringify({
-                            user: loginData.user,
-                            customToken: loginData.customToken,
-                            lineProfile: loginData.lineProfile,
-                            idTokenData: loginData.idTokenData,
-                            availableProviders: providers
-                        }));
-                        
-                        return; // ออกจากฟังก์ชันโดยไม่แสดงข้อความสำเร็จ
-                    }
-                    
-                    // ถ้าไม่ใช่ error เกี่ยวกับ account linking ให้ throw error ต่อไป
-                    throw firebaseError;
-                }
-            } else {
-                throw new Error('No custom token received from backend');
-            }
-
-            // อัพเดทสถานะ LINE
-            if (lineStatus) {
-                lineStatus.textContent = `✅ LINE login successful: ${loginData.user.displayName}`;
-                lineStatus.className = 'status success';
+                lineStatus.textContent = '🔄 Redirecting to LINE authorization...';
             }
             
-            // ซ่อนคำแนะนำ
+            // แสดงคำแนะนำ
             if (lineLoginInstructions) {
-                lineLoginInstructions.style.display = 'none';
-            }
-            
-            // แสดงข้อความสำเร็จ
-            if (successMessage) {
-                successMessage.textContent = `✅ LINE login successful: ${loginData.user.displayName}`;
-                successMessage.style.display = 'block';
+                lineLoginInstructions.innerHTML = `
+                    <h4>📋 LINE Login Instructions:</h4>
+                    <ul>
+                        <li>✅ <strong>Complete the authorization</strong> - Follow the steps on the LINE page</li>
+                        <li>✅ <strong>Allow permissions</strong> - Grant LINE the requested permissions</li>
+                        <li>✅ <strong>Wait for redirect back</strong> - You'll be redirected back here after completion</li>
+                        <li>✅ <strong>Don't close the browser</strong> - Let the process complete naturally</li>
+                    </ul>
+                    <p style="margin-top: 10px; font-size: 14px; color: #6c757d;">
+                        <strong>Note:</strong> You will be redirected to LINE's authorization page and then back here.
+                    </p>
+                `;
+                lineLoginInstructions.style.display = 'block';
             }
 
-            // เก็บข้อมูล LINE ใน localStorage
-            localStorage.setItem('lineUser', JSON.stringify(loginData.user));
-            localStorage.setItem('lineCustomToken', loginData.customToken);
-            localStorage.setItem('lineAccessToken', loginData.lineProfile.accessToken);
-            localStorage.setItem('lineProfile', JSON.stringify(loginData.lineProfile));
-            localStorage.setItem('idTokenData', JSON.stringify(loginData.idTokenData));
+            // เก็บข้อมูล state ไว้ใน localStorage เพื่อตรวจสอบเมื่อกลับมา
+            localStorage.setItem('lineAuthState', authData.state);
+            localStorage.setItem('lineAuthTimestamp', Date.now().toString());
+
+            // Redirect ไปยัง LINE authorization page
+            window.location.href = authData.authUrl;
+
+            // Redirect ไปยัง LINE authorization page เสร็จแล้ว
+            // การประมวลผลผลลัพธ์จะทำในฟังก์ชัน checkLineAuthCallback เมื่อ redirect กลับมา
 
         } catch (error) {
             console.error('❌ LINE login error:', error);
@@ -590,52 +351,63 @@ if (lineLoginBtn) {
             if (errorMessage) {
                 let errorText = error.message;
                 let helpText = '';
+                let troubleshootingSteps = '';
                 
                 // จัดการ error ตามประเภท
-                if (error.message.includes('cancelled by user')) {
-                    errorText = 'LINE login was cancelled';
+                if (error.message.includes('Backend server not available')) {
+                    errorText = 'Backend server is not running';
                     helpText = `
-                        <div style="margin-top: 10px; padding: 10px; background-color: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
-                            <strong>💡 Tips:</strong>
-                            <ul style="margin: 5px 0; padding-left: 20px;">
-                                <li>Make sure to complete the LINE authorization process</li>
-                                <li>Don't close the popup window until you see the success message</li>
-                                <li>If the popup doesn't appear, check your browser's popup blocker</li>
-                                <li>Try clicking the LINE login button again</li>
+                        <div style="margin-top: 10px; padding: 15px; background-color: #d1ecf1; border-radius: 8px; border-left: 4px solid #17a2b8;">
+                            <strong>🔧 Solution:</strong>
+                            <p style="margin: 10px 0;">Please start the backend server with:</p>
+                            <pre style="background-color: #f8f9fa; padding: 12px; border-radius: 5px; margin: 10px 0; border: 1px solid #dee2e6;">node server.js</pre>
+                            <p style="margin: 10px 0; font-size: 14px; color: #6c757d;">Make sure the server is running on port 3000</p>
+                        </div>
+                    `;
+                } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                    errorText = 'Network connection error';
+                    helpText = `
+                        <div style="margin-top: 10px; padding: 15px; background-color: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545;">
+                            <strong>🌐 Network Issue:</strong>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                <li>Check your internet connection</li>
+                                <li>Try refreshing the page</li>
+                                <li>Check if the backend server is running</li>
+                                <li>Verify firewall settings</li>
                             </ul>
                         </div>
                     `;
-                } else if (error.message.includes('Backend server not available')) {
-                    errorText = 'Backend server is not running';
+                } else {
+                    errorText = 'LINE login failed';
                     helpText = `
-                        <div style="margin-top: 10px; padding: 10px; background-color: #d1ecf1; border-radius: 5px; border-left: 4px solid #17a2b8;">
-                            <strong>🔧 Solution:</strong>
-                            <p style="margin: 5px 0;">Please start the backend server with:</p>
-                            <pre style="background-color: #f8f9fa; padding: 8px; border-radius: 3px; margin: 5px 0;">node server.js</pre>
-                        </div>
-                    `;
-                } else if (error.message.includes('Popup blocked')) {
-                    errorText = 'Popup was blocked by browser';
-                    helpText = `
-                        <div style="margin-top: 10px; padding: 10px; background-color: #f8d7da; border-radius: 5px; border-left: 4px solid #dc3545;">
-                            <strong>🔒 Browser Settings:</strong>
-                            <ul style="margin: 5px 0; padding-left: 20px;">
-                                <li>Allow popups for this website</li>
-                                <li>Check your browser's popup blocker settings</li>
-                                <li>Try refreshing the page and try again</li>
+                        <div style="margin-top: 10px; padding: 15px; background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                            <strong>💡 Tips:</strong>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                <li>Complete the LINE authorization process on the LINE page</li>
+                                <li>Don't close the browser during authorization</li>
+                                <li>Check your internet connection</li>
+                                <li>Try clicking the LINE login button again</li>
                             </ul>
                         </div>
                     `;
                 }
                 
                 errorMessage.innerHTML = `
-                    <div style="margin-bottom: 10px;">
+                    <div style="margin-bottom: 15px;">
                         <strong>❌ ${errorText}</strong>
+                        <p style="margin: 5px 0; color: #6c757d; font-size: 14px;">Error details: ${error.message}</p>
                     </div>
                     ${helpText}
-                    <div style="margin-top: 10px;">
-                        <button id="retryLineLoginBtn" class="button" style="background-color: #00c300;">
+                    ${troubleshootingSteps}
+                    <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="retryLineLoginBtn" class="button" style="background-color: #00c300; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                             🔄 Try LINE Login Again
+                        </button>
+                        <button id="checkBackendBtn" class="button" style="background-color: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                            🔍 Check Backend Status
+                        </button>
+                        <button id="clearErrorBtn" class="button" style="background-color: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                            ✖️ Clear Error
                         </button>
                     </div>
                 `;
@@ -650,6 +422,30 @@ if (lineLoginBtn) {
                     }
                     // เรียกใช้ LINE login อีกครั้ง
                     lineLoginBtn.click();
+                });
+                
+                // เพิ่ม event listener สำหรับปุ่ม check backend
+                document.getElementById('checkBackendBtn').addEventListener('click', async () => {
+                    const isAvailable = await checkBackendHealth();
+                    const backendStatus = document.getElementById('backendStatus');
+                    if (backendStatus) {
+                        if (isAvailable) {
+                            backendStatus.textContent = '✅ Backend is running (localhost:3000)';
+                            backendStatus.className = 'status success';
+                        } else {
+                            backendStatus.textContent = '⚠️ Backend is not available (localhost:3000)';
+                            backendStatus.className = 'status error';
+                        }
+                        backendStatus.style.display = 'block';
+                    }
+                });
+                
+                // เพิ่ม event listener สำหรับปุ่ม clear error
+                document.getElementById('clearErrorBtn').addEventListener('click', () => {
+                    errorMessage.style.display = 'none';
+                    if (lineStatus) {
+                        lineStatus.style.display = 'none';
+                    }
                 });
             }
         }
@@ -1060,6 +856,216 @@ async function handleAccountLinking(lineLoginData) {
     } catch (error) {
         console.error('❌ Account linking error:', error);
         throw error;
+    }
+}
+
+// ตรวจสอบ LINE authorization callback
+async function checkLineAuthCallback() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const state = urlParams.get('state');
+        const error = urlParams.get('error');
+
+        if (error) {
+            console.error('❌ LINE authorization error:', error);
+            showStatusMessage(`LINE authorization failed: ${error}`, 'error');
+            // ล้าง URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+        }
+
+        if (code && state) {
+            console.log('🔄 Processing LINE authorization callback...');
+            
+            // ตรวจสอบ state ว่าตรงกับที่เก็บไว้หรือไม่
+            const savedState = localStorage.getItem('lineAuthState');
+            if (state !== savedState) {
+                console.error('❌ Invalid state parameter');
+                showStatusMessage('Invalid authorization state. Please try again.', 'error');
+                // ล้าง URL parameters
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return;
+            }
+
+            // แสดงสถานะ
+            const lineStatus = document.getElementById('lineStatus');
+            if (lineStatus) {
+                lineStatus.style.display = 'block';
+                lineStatus.textContent = '🔄 Processing LINE authorization...';
+                lineStatus.className = 'status warning';
+            }
+
+            try {
+                // แลกเปลี่ยน authorization code เป็น token
+                const loginResponse = await fetch('http://localhost:3000/api/auth/line/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        state: state
+                    })
+                });
+
+                const loginData = await loginResponse.json();
+                
+                if (!loginData.success) {
+                    throw new Error(loginData.error || 'LINE login failed');
+                }
+
+                console.log('✅ LINE login successful:', loginData.user);
+
+                // เข้าสู่ระบบ Firebase ด้วย custom token
+                if (loginData.customToken) {
+                    try {
+                        const userCredential = await signInWithCustomToken(auth, loginData.customToken);
+                        console.log('✅ Firebase sign in with custom token successful:', userCredential.user);
+                        
+                        // อัพเดทสถานะ
+                        if (lineStatus) {
+                            lineStatus.textContent = `✅ LINE login successful: ${loginData.user.displayName}`;
+                            lineStatus.className = 'status success';
+                        }
+                        
+                        // แสดงข้อความสำเร็จ
+                        const successMessage = document.getElementById('successMessage');
+                        if (successMessage) {
+                            successMessage.innerHTML = `
+                                <div style="margin-bottom: 10px;">
+                                    <strong>🎉 LINE Login Successful!</strong>
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <strong>Welcome, ${loginData.user.displayName}!</strong><br>
+                                    Email: ${loginData.user.email || 'Not provided'}<br>
+                                    LINE User ID: ${loginData.user.lineUserId || 'N/A'}
+                                </div>
+                                <div style="font-size: 14px; color: #28a745;">
+                                    ✅ Your LINE account has been successfully linked to Firebase
+                                </div>
+                            `;
+                            successMessage.style.display = 'block';
+                            
+                            // Auto-hide success message after 5 seconds
+                            setTimeout(() => {
+                                if (successMessage) {
+                                    successMessage.style.display = 'none';
+                                }
+                            }, 5000);
+                        }
+
+                        // เก็บข้อมูล LINE ใน localStorage
+                        localStorage.setItem('lineUser', JSON.stringify(loginData.user));
+                        localStorage.setItem('lineCustomToken', loginData.customToken);
+                        localStorage.setItem('lineAccessToken', loginData.lineProfile.accessToken);
+                        localStorage.setItem('lineProfile', JSON.stringify(loginData.lineProfile));
+                        localStorage.setItem('idTokenData', JSON.stringify(loginData.idTokenData));
+
+                    } catch (firebaseError) {
+                        console.log('🔍 Firebase sign in error:', firebaseError);
+                        
+                        // Case: linkWithCredentials - เมื่อมี Firebase account อยู่แล้วด้วย email เดียวกัน
+                        if (firebaseError.code === 'auth/account-exists-with-different-credential' || 
+                            firebaseError.code === 'auth/email-already-in-use') {
+                            
+                            console.log('🔄 Detected existing Firebase account with same email, attempting to link accounts...');
+                            
+                            // ตรวจสอบว่า email นี้ใช้ provider อะไรบ้าง
+                            const providers = await fetchSignInMethodsForEmail(auth, loginData.user.email);
+                            console.log('📋 Available providers for email:', providers);
+                            
+                            // แสดงข้อความแจ้งเตือนผู้ใช้
+                            const errorMessage = document.getElementById('errorMessage');
+                            if (errorMessage) {
+                                const providerText = providers.includes('google.com') ? 'Google' : 
+                                                   providers.includes('password') ? 'Email/Password' : 
+                                                   providers.join(', ');
+                                
+                                errorMessage.innerHTML = `
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>⚠️ Account Link Required</strong><br>
+                                        Email ${loginData.user.email} already exists with ${providerText} provider.<br>
+                                        Please sign in with your existing account first, then we'll link your LINE account.
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <button id="linkAccountsBtn" class="button" style="background-color: #28a745; margin-right: 10px;">
+                                            🔗 Link LINE Account to Existing Account
+                                        </button>
+                                        ${providers.includes('google.com') ? `
+                                        <button id="googleSignInBtn" class="button" style="background-color: #4285f4;">
+                                            🔐 Sign in with Google First
+                                        </button>
+                                        ` : ''}
+                                    </div>
+                                `;
+                                errorMessage.style.display = 'block';
+                                
+                                // เพิ่ม event listener สำหรับปุ่ม link accounts
+                                document.getElementById('linkAccountsBtn').addEventListener('click', async () => {
+                                    try {
+                                        await handleAccountLinking(loginData);
+                                    } catch (linkError) {
+                                        console.error('❌ Account linking failed:', linkError);
+                                        if (errorMessage) {
+                                            errorMessage.textContent = `Account linking failed: ${linkError.message}`;
+                                        }
+                                    }
+                                });
+                                
+                                // เพิ่ม event listener สำหรับปุ่ม Google sign in (ถ้ามี)
+                                const googleSignInBtn = document.getElementById('googleSignInBtn');
+                                if (googleSignInBtn) {
+                                    googleSignInBtn.addEventListener('click', async () => {
+                                        try {
+                                            await handleGoogleSignInForLinking(loginData);
+                                        } catch (googleError) {
+                                            console.error('❌ Google sign in for linking failed:', googleError);
+                                            if (errorMessage) {
+                                                errorMessage.textContent = `Google sign in failed: ${googleError.message}`;
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            // เก็บข้อมูล LINE สำหรับการ link ภายหลัง
+                            localStorage.setItem('pendingLineLink', JSON.stringify({
+                                user: loginData.user,
+                                customToken: loginData.customToken,
+                                lineProfile: loginData.lineProfile,
+                                idTokenData: loginData.idTokenData,
+                                availableProviders: providers
+                            }));
+                        } else {
+                            // ถ้าไม่ใช่ error เกี่ยวกับ account linking ให้แสดง error
+                            if (lineStatus) {
+                                lineStatus.textContent = `❌ Firebase sign in failed: ${firebaseError.message}`;
+                                lineStatus.className = 'status error';
+                            }
+                            showStatusMessage(`Firebase sign in failed: ${firebaseError.message}`, 'error');
+                        }
+                    }
+                } else {
+                    throw new Error('No custom token received from backend');
+                }
+
+            } catch (error) {
+                console.error('❌ LINE login error:', error);
+                if (lineStatus) {
+                    lineStatus.textContent = `❌ LINE login failed: ${error.message}`;
+                    lineStatus.className = 'status error';
+                }
+                showStatusMessage(`LINE login failed: ${error.message}`, 'error');
+            }
+
+            // ล้าง URL parameters และ localStorage
+            window.history.replaceState({}, document.title, window.location.pathname);
+            localStorage.removeItem('lineAuthState');
+            localStorage.removeItem('lineAuthTimestamp');
+        }
+    } catch (error) {
+        console.error('❌ Error checking LINE auth callback:', error);
     }
 }
 

@@ -156,63 +156,21 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🔄 LINE callback page loaded');
             console.log('📋 URL parameters:', { code, state, error, errorDescription });
-            console.log('🔍 Window opener:', window.opener ? 'Available' : 'Not available');
             
             if (error) {
                 console.log('❌ Error parameter found:', error);
                 handleError(error, errorDescription || 'Unknown error');
             } else if (code && state) {
                 console.log('✅ Code and state parameters found');
-                // Check if this is opened in popup (for account linking) or direct access (for login)
-                if (window.opener) {
-                    console.log('🔄 This is for account linking (popup mode)');
-                    // This is for account linking - just send the code back to parent
-                    handleAccountLinking(code, state);
-                } else {
-                    console.log('🔄 This is for direct LINE login');
-                    // This is for direct LINE login
-                    processLineLogin(code, state);
-                }
+                // Process LINE login (redirect mode)
+                processLineLogin(code, state);
             } else {
                 console.log('❌ Missing required parameters');
                 handleError('missing_params', 'Missing authorization code or state parameter');
             }
         });
 
-        // Handle account linking (popup mode)
-        function handleAccountLinking(code, state) {
-            try {
-                console.log('🔄 Processing account linking with code:', code.substring(0, 10) + '...');
-                updateStatus('Authorization successful! Sending data to parent window...', 'success');
-                
-                // Send success message to parent window
-                if (window.opener) {
-                    const message = {
-                        type: 'LINE_AUTH_SUCCESS',
-                        code: code,
-                        state: state
-                    };
-                    
-                    console.log('📤 Sending message to parent:', message);
-                    window.opener.postMessage(message, window.location.origin);
-                    
-                    console.log('✅ Success message sent to parent window');
-                    
-                    // Close popup after a short delay
-                    setTimeout(() => {
-                        console.log('🔄 Closing popup window');
-                        window.close();
-                    }, 2000);
-                } else {
-                    console.error('❌ No opener window found');
-                    handleError('no_opener', 'No parent window found for account linking');
-                }
-                
-            } catch (error) {
-                console.error('❌ Account linking error:', error);
-                handleError('account_linking_failed', error.message);
-            }
-        }
+
 
         // Process LINE login
         async function processLineLogin(code, state) {
@@ -249,28 +207,10 @@
                 updateStatus('Login successful!', 'success');
                 displayUserInfo(loginData.user);
 
-                // Send message to parent window (if opened in popup)
-                if (window.opener) {
-                    window.opener.postMessage({
-                        type: 'LINE_AUTH_SUCCESS',
-                        code: code,
-                        state: state,
-                        user: loginData.user,
-                        customToken: loginData.customToken,
-                        lineProfile: loginData.lineProfile,
-                        idTokenData: loginData.idTokenData
-                    }, window.location.origin);
-                    
-                    // Close popup after a short delay
-                    setTimeout(() => {
-                        window.close();
-                    }, 2000);
-                }
-
-                // Auto-redirect to demo page after successful login
+                // Redirect back to main page with authorization code
                 setTimeout(() => {
-                    window.location.href = 'index-simple.html';
-                }, 3000);
+                    window.location.href = 'index.html?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
+                }, 2000);
 
             } catch (error) {
                 console.error('LINE login error:', error);
@@ -292,26 +232,10 @@
                 <strong>Timestamp:</strong> ${new Date().toISOString()}
             `;
 
-            // Send error message to parent window
-            if (window.opener) {
-                console.log('📤 Sending error message to parent window');
-                window.opener.postMessage({
-                    type: 'LINE_AUTH_ERROR',
-                    error: errorCode,
-                    message: errorMessage
-                }, window.location.origin);
-                
-                // Close popup after sending error
-                setTimeout(() => {
-                    console.log('🔄 Closing popup due to error');
-                    window.close();
-                }, 2000);
-            } else {
-                // Auto-redirect to demo page after error (only if not in popup)
-                setTimeout(() => {
-                    window.location.href = 'index-simple.html';
-                }, 5000);
-            }
+            // Redirect back to main page with error
+            setTimeout(() => {
+                window.location.href = 'index.html?error=' + encodeURIComponent(errorCode) + '&error_description=' + encodeURIComponent(errorMessage);
+            }, 3000);
         }
 
         // Update status display
@@ -351,35 +275,11 @@
             }
         }
 
-        // Handle window close
-        window.addEventListener('beforeunload', function() {
-            console.log('🔄 Window closing, sending close message to parent');
-            // Send close message to parent window
-            if (window.opener) {
-                try {
-                    window.opener.postMessage({
-                        type: 'LINE_LOGIN_POPUP_CLOSED'
-                    }, window.location.origin);
-                } catch (error) {
-                    console.error('❌ Error sending close message:', error);
-                }
-            }
-        });
-
-        // Handle window focus/blur events
-        window.addEventListener('blur', function() {
-            console.log('🔄 Window lost focus');
-        });
-
-        window.addEventListener('focus', function() {
-            console.log('🔄 Window gained focus');
-        });
-
         // Handle keyboard shortcuts
         document.addEventListener('keydown', function(event) {
-            // ESC key to close popup
-            if (event.key === 'Escape' && window.opener) {
-                window.close();
+            // ESC key to go back
+            if (event.key === 'Escape') {
+                window.history.back();
             }
         });
     </script>

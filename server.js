@@ -21,6 +21,17 @@ const users = [];
 const revokedTokens = [];
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0'
+  });
+});
+
 // LINE Login Configuration
 const LINE_CONFIG = {
   CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
