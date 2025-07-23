@@ -209,7 +209,7 @@
 
                 // Redirect back to main page with authorization code
                 setTimeout(() => {
-                    window.location.href = 'index.html?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
+                    window.location.href = 'http://127.0.0.1:5500/index.html?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
                 }, 2000);
 
             } catch (error) {
@@ -234,7 +234,7 @@
 
             // Redirect back to main page with error
             setTimeout(() => {
-                window.location.href = 'index.html?error=' + encodeURIComponent(errorCode) + '&error_description=' + encodeURIComponent(errorMessage);
+                window.location.href = 'http://127.0.0.1:5500/index.html?error=' + encodeURIComponent(errorCode) + '&error_description=' + encodeURIComponent(errorMessage);
             }, 3000);
         }
 
