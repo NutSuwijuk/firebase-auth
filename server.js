@@ -39,6 +39,7 @@ const LINE_CONFIG = {
   REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://127.0.0.1:5500/index.html"
 };
 
+
 // Setup Firebase Admin with environment variables
 try {
   admin.app();
