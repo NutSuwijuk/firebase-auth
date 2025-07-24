@@ -87,8 +87,13 @@ try {
   
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
+    databaseURL: process.env.FIREBASE_DATABASE_URL || "https://basic-firebase-9e03e-default-rtdb.firebaseio.com"
   });
 }
+
+// Initialize Firestore
+const db = admin.firestore();
+console.log('✅ Firestore initialized successfully');
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
@@ -546,7 +551,8 @@ app.get('/api/auth/line/auth-url', async (req, res) => {
 });
 
 /**
- * LINE Login - Exchange Code for Token
+ * LINE Login - Exchange Code for Token (Improved Version)
+ * This follows the correct approach: check by email first, then either link or create
  */
 app.post('/api/auth/line/login', async (req, res) => {
   try {
@@ -559,10 +565,9 @@ app.post('/api/auth/line/login', async (req, res) => {
       });
     }
 
-    console.log("Processing LINE login", { 
+    console.log("🔄 Processing LINE login with improved logic", { 
       code: code.substring(0, 10) + '...', 
-      state,
-      body: req.body 
+      state
     });
 
     // Step 1: Exchange code for access token
@@ -591,7 +596,7 @@ app.post('/api/auth/line/login', async (req, res) => {
 
     const lineProfile = profileResponse.data;
 
-    // Step 3: Verify ID token (optional but recommended)
+    // Step 3: Verify ID token to get email
     const idTokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/verify', 
       new URLSearchParams({
         id_token: id_token,
@@ -604,21 +609,111 @@ app.post('/api/auth/line/login', async (req, res) => {
     );
 
     const idTokenData = idTokenResponse.data;
+    
+    // Extract LINE user data
+    const lineUserId = lineProfile.userId;
+    const lineEmail = idTokenData.email;
+    const lineDisplayName = lineProfile.displayName;
+    const linePictureUrl = lineProfile.pictureUrl;
 
-    // Step 4: Create or update Firebase user
-    const firebaseUser = await createOrUpdateFirebaseUser(lineProfile, idTokenData);
+    if (!lineEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Email permission not granted in LINE. Please grant email permission and try again."
+      });
+    }
+
+    console.log("📧 LINE user data extracted:", {
+      lineUserId,
+      lineEmail,
+      lineDisplayName,
+      hasPicture: !!linePictureUrl
+    });
+
+    let firebaseUser;
+    let isNewUser = false;
+    let isAccountLinked = false;
+
+    // Step 4: Check if user exists by email (THE CORRECT APPROACH)
+    try {
+      firebaseUser = await admin.auth().getUserByEmail(lineEmail);
+      console.log(`✅ Found existing user by email: ${lineEmail}, UID: ${firebaseUser.uid}`);
+      
+      // Case 1: User found by email - this means we need to LINK accounts
+      isAccountLinked = true;
+      
+      // Update existing user with latest LINE data
+      await admin.auth().updateUser(firebaseUser.uid, {
+        displayName: lineDisplayName,
+        photoURL: linePictureUrl,
+        lastSignInTime: new Date().toISOString()
+      });
+
+      // Update custom claims to include LINE information
+      const existingClaims = firebaseUser.customClaims || {};
+      await admin.auth().setCustomUserClaims(firebaseUser.uid, {
+        ...existingClaims,
+        lineUserId: lineUserId,
+        lineDisplayName: lineDisplayName,
+        linePictureUrl: linePictureUrl,
+        lineStatusMessage: lineProfile.statusMessage,
+        lastLineSignIn: new Date().toISOString(),
+        hasLineAccount: true
+      });
+
+      console.log(`🔗 Linked LINE account to existing Firebase user: ${firebaseUser.uid}`);
+
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        console.log(`📝 User with email ${lineEmail} not found. Creating new user.`);
+        
+        // Case 2: User not found by email - create new user
+        isNewUser = true;
+        
+        firebaseUser = await admin.auth().createUser({
+          email: lineEmail,
+          emailVerified: true, // Trust email from LINE
+          displayName: lineDisplayName,
+          photoURL: linePictureUrl,
+          disabled: false
+        });
+
+        // Set custom claims for new user
+        await admin.auth().setCustomUserClaims(firebaseUser.uid, {
+          provider: 'line.com',
+          lineUserId: lineUserId,
+          lineDisplayName: lineDisplayName,
+          linePictureUrl: linePictureUrl,
+          lineStatusMessage: lineProfile.statusMessage,
+          email: lineEmail,
+          emailVerified: true,
+          signInProvider: 'line.com',
+          lastSignInTime: new Date().toISOString(),
+          isLineUser: true
+        });
+
+        console.log(`✅ Created new Firebase user: ${firebaseUser.uid}`);
+      } else {
+        throw error; // Re-throw other errors
+      }
+    }
 
     // Step 5: Generate custom token for Firebase Auth
     const customToken = await admin.auth().createCustomToken(firebaseUser.uid, {
       provider: 'line.com',
-      lineUserId: lineProfile.userId,
-      lineDisplayName: lineProfile.displayName,
-      email: idTokenData.email || null
+      lineUserId: lineUserId,
+      lineDisplayName: lineDisplayName,
+      email: lineEmail,
+      isNewUser: isNewUser,
+      isAccountLinked: isAccountLinked
     });
 
-    console.log("LINE login successful", { 
-      lineUserId: lineProfile.userId,
+    console.log("🎉 LINE login successful", { 
+      lineUserId: lineUserId,
       firebaseUid: firebaseUser.uid,
+      email: lineEmail,
+      isNewUser: isNewUser,
+      isAccountLinked: isAccountLinked,
       lastSignInTime: new Date().toISOString()
     });
 
@@ -630,13 +725,15 @@ app.post('/api/auth/line/login', async (req, res) => {
         email: firebaseUser.email,
         photoURL: firebaseUser.photoURL,
         provider: 'line',
-        lineUserId: lineProfile.userId
+        lineUserId: lineUserId,
+        isNewUser: isNewUser,
+        isAccountLinked: isAccountLinked
       },
       customToken,
       lineProfile: {
-        userId: lineProfile.userId,
-        displayName: lineProfile.displayName,
-        pictureUrl: lineProfile.pictureUrl,
+        userId: lineUserId,
+        displayName: lineDisplayName,
+        pictureUrl: linePictureUrl,
         statusMessage: lineProfile.statusMessage,
         accessToken: access_token,
         idToken: id_token,
@@ -650,16 +747,23 @@ app.post('/api/auth/line/login', async (req, res) => {
         aud: idTokenData.aud,
         exp: idTokenData.exp,
         iat: idTokenData.iat,
-        email: idTokenData.email,
+        email: lineEmail,
         emailVerified: idTokenData.email_verified,
-        name: idTokenData.name,
-        picture: idTokenData.picture
+        name: lineDisplayName,
+        picture: linePictureUrl
+      },
+      accountInfo: {
+        isNewUser: isNewUser,
+        isAccountLinked: isAccountLinked,
+        message: isNewUser ? 
+          "New account created successfully" : 
+          "LINE account linked to existing account successfully"
       },
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error("LINE login error:", error);
+    console.error("❌ LINE login error:", error);
     console.error("Error details:", {
       message: error.message,
       response: error.response?.data,
@@ -956,105 +1060,30 @@ app.get('/api/auth/line/callback', async (req, res) => {
 // Helper Functions for LINE Login
 
 /**
- * Create or update Firebase user
+ * Helper function to get user info by Firebase UID
+ * @param {string} uid - Firebase user UID
+ * @returns {Object} User information
  */
-async function createOrUpdateFirebaseUser(lineProfile, idTokenData) {
+async function getUserInfoByUid(uid) {
   try {
-    // Check if user already exists by LINE user ID
-    let firebaseUser = await findFirebaseUserByLineId(lineProfile.userId);
-
-    if (firebaseUser) {
-      // Update existing user
-      await admin.auth().updateUser(firebaseUser.uid, {
-        displayName: lineProfile.displayName,
-        photoURL: lineProfile.pictureUrl,
-        email: idTokenData.email || firebaseUser.email,
-        lastSignInTime: new Date().toISOString()
-      });
-
-      // Update custom claims
-      await admin.auth().setCustomUserClaims(firebaseUser.uid, {
-        provider: 'line.com',
-        lineUserId: lineProfile.userId,
-        lineDisplayName: lineProfile.displayName,
-        linePictureUrl: lineProfile.pictureUrl,
-        lineStatusMessage: lineProfile.statusMessage,
-        email: idTokenData.email || firebaseUser.email,
-        emailVerified: !!idTokenData.email,
-        signInProvider: 'line.com',
-        lastSignInTime: new Date().toISOString(),
-        lastSignInAt: new Date().toISOString()
-      });
-
-      console.log("Updated existing Firebase user", { uid: firebaseUser.uid });
-      return firebaseUser;
-    }
-
-    // Create new user
-    const userRecord = await admin.auth().createUser({
-      email: idTokenData.email,
-      displayName: lineProfile.displayName,
-      photoURL: lineProfile.pictureUrl,
-      emailVerified: !!idTokenData.email,
-      disabled: false
-    });
-
-    // Update lastSignInTime for new user
-    await admin.auth().updateUser(userRecord.uid, {
-      lastSignInTime: new Date().toISOString()
-    });
-
-    // Set custom claims
-    await admin.auth().setCustomUserClaims(userRecord.uid, {
-      provider: 'line.com',
-      lineUserId: lineProfile.userId,
-      lineDisplayName: lineProfile.displayName,
-      linePictureUrl: lineProfile.pictureUrl,
-      lineStatusMessage: lineProfile.statusMessage,
-      email: idTokenData.email || null,
-      emailVerified: !!idTokenData.email,
-      signInProvider: 'line.com',
-      lastSignInTime: new Date().toISOString()
-    });
-
-    console.log("Created new Firebase user", { uid: userRecord.uid });
-    return userRecord;
-
+    const userRecord = await admin.auth().getUser(uid);
+    return {
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName,
+      photoURL: userRecord.photoURL,
+      emailVerified: userRecord.emailVerified,
+      customClaims: userRecord.customClaims,
+      lastSignInTime: userRecord.metadata.lastSignInTime,
+      creationTime: userRecord.metadata.creationTime
+    };
   } catch (error) {
-    console.error("Error creating/updating Firebase user:", error);
+    console.error("Error getting user info by UID:", error);
     throw error;
   }
 }
 
-/**
- * Find Firebase user by LINE user ID
- */
-async function findFirebaseUserByLineId(lineUserId) {
-  try {
-    console.log(`🔍 Searching for Firebase user with LINE User ID: ${lineUserId}`);
-    
-    // This is a simplified approach. In production, you might want to store
-    // LINE user ID to Firebase UID mapping in Firestore
-    const listUsersResult = await admin.auth().listUsers();
-    console.log(`📊 Found ${listUsersResult.users.length} total Firebase users`);
-    
-    for (const userRecord of listUsersResult.users) {
-      const customClaims = userRecord.customClaims || {};
-      console.log(`👤 Checking user: ${userRecord.uid}, Custom Claims:`, customClaims);
-      
-      if (customClaims.lineUserId === lineUserId) {
-        console.log(`✅ Found matching user: ${userRecord.uid}`);
-        return userRecord;
-      }
-    }
-    
-    console.log(`❌ No user found with LINE User ID: ${lineUserId}`);
-    return null;
-  } catch (error) {
-    console.error("Error finding Firebase user by LINE ID:", error);
-    throw error;
-  }
-}
+
 
 // Start server
 app.listen(PORT, () => {

@@ -76,8 +76,7 @@ checkBackendHealth().then(isAvailable => {
 
 
 
-// ตรวจสอบ pending LINE link เมื่อโหลดหน้า
-setTimeout(checkPendingLineLink, 1000);
+// Note: Account linking functionality has been removed
 
 // ตรวจสอบ LINE authorization callback เมื่อโหลดหน้า
 setTimeout(checkLineAuthCallback, 500);
@@ -89,8 +88,7 @@ onAuthStateChanged(auth, async (user) => {
     userInfo.style.display = 'block';
     loginForm.style.display = 'none';
     
-    // ตรวจสอบ pending LINE link เมื่อผู้ใช้เข้าสู่ระบบ
-    await checkPendingLineLink();
+    // Note: Account linking functionality has been removed
     
     // Get Firebase tokens
     const tokens = await getFirebaseTokens(user);
@@ -567,6 +565,23 @@ function showError(error) {
   console.error('❌', msg);
 }
 
+// Helper function to show status messages
+function showStatusMessage(message, type = 'info') {
+  if (statusMessage) {
+    statusMessage.textContent = message;
+    statusMessage.className = `status ${type}`;
+    statusMessage.style.display = 'block';
+    
+    // Auto hide after 5 seconds
+    setTimeout(() => {
+      if (statusMessage) {
+        statusMessage.style.display = 'none';
+      }
+    }, 5000);
+  }
+  console.log(`📝 ${type.toUpperCase()}: ${message}`);
+}
+
 // Handle switch account button click
 switchAccountBtn.addEventListener('click', async () => {
   try {
@@ -595,8 +610,7 @@ if (logoutBtn) {
       // Sign out from Firebase
       await signOut(auth);
       
-      // ล้างข้อมูล pending LINE link เมื่อ logout
-      localStorage.removeItem('pendingLineLink');
+      // Note: Account linking functionality has been removed
       
       if (statusMessage) {
         statusMessage.textContent = 'Successfully signed out from all services';
@@ -707,157 +721,7 @@ function decodeJWT(token) {
   }
 }
 
-// ฟังก์ชันสำหรับ Google Sign-In เพื่อการเชื่อมต่อบัญชี
-async function handleGoogleSignInForLinking(lineLoginData) {
-    try {
-        console.log('🔄 Starting Google sign in for account linking...');
-        
-        // ตรวจสอบว่าผู้ใช้ยังไม่ได้เข้าสู่ระบบอยู่
-        if (auth.currentUser) {
-            console.log('✅ User already signed in, proceeding with account linking...');
-            return await handleAccountLinking(lineLoginData);
-        }
-        
-        // ตรวจสอบว่า email นี้ใช้ Google provider หรือไม่
-        const providers = await fetchSignInMethodsForEmail(auth, lineLoginData.user.email);
-        if (!providers.includes('google.com')) {
-            throw new Error('Google provider not available for this email');
-        }
-        
-        console.log('🔐 Signing in with Google for account linking...');
-        
-        // ตั้งค่า Google provider
-        const googleProvider = new GoogleAuthProvider();
-        googleProvider.setCustomParameters({
-            prompt: 'select_account',
-            login_hint: lineLoginData.user.email
-        });
-        
-        // Sign in with Google
-        const googleResult = await signInWithPopup(auth, googleProvider);
-        console.log('✅ Google sign in successful for linking:', googleResult.user);
-        
-        // ตรวจสอบว่า email ตรงกันหรือไม่
-        if (googleResult.user.email !== lineLoginData.user.email) {
-            await signOut(auth);
-            throw new Error(`Email mismatch. Google account: ${googleResult.user.email}, LINE account: ${lineLoginData.user.email}`);
-        }
-        
-        // ดำเนินการ account linking
-        return await handleAccountLinking(lineLoginData);
-        
-    } catch (error) {
-        console.error('❌ Google sign in for linking error:', error);
-        throw error;
-    }
-}
 
-// ฟังก์ชันสำหรับจัดการการเชื่อมต่อบัญชี (Account Linking)
-async function handleAccountLinking(lineLoginData) {
-    try {
-        console.log('🔄 Starting account linking process...');
-        
-        // ตรวจสอบว่าผู้ใช้เข้าสู่ระบบอยู่หรือไม่
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error('Please sign in with your existing account first');
-        }
-        
-        console.log('✅ Current user found:', currentUser.email);
-        
-        // ตรวจสอบว่ามีข้อมูล LINE ที่รอการ link หรือไม่
-        const pendingLineLink = localStorage.getItem('pendingLineLink');
-        if (!pendingLineLink) {
-            throw new Error('No pending LINE account to link');
-        }
-        
-        const lineData = JSON.parse(pendingLineLink);
-        
-        // ตรวจสอบว่า email ตรงกันหรือไม่
-        if (currentUser.email !== lineData.user.email) {
-            throw new Error(`Email mismatch. Current account: ${currentUser.email}, LINE account: ${lineData.user.email}`);
-        }
-        
-        console.log('✅ Email verification passed, proceeding with account linking...');
-        
-        // ขั้นตอนที่ 1: ขอ custom token สำหรับ LINE account จาก backend
-        const linkResponse = await fetch('http://localhost:3000/api/auth/line/link-account', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                currentUserUid: currentUser.uid,
-                lineUser: lineData.user,
-                lineProfile: lineData.lineProfile,
-                idTokenData: lineData.idTokenData
-            })
-        });
-        
-        const linkData = await linkResponse.json();
-        
-        if (!linkData.success) {
-            throw new Error(linkData.error || 'Failed to link accounts on backend');
-        }
-        
-        console.log('✅ Backend account linking successful');
-        
-        // ขั้นตอนที่ 2: Link LINE credential กับ Firebase account ปัจจุบัน
-        try {
-            // สร้าง LINE credential จาก custom token
-            const lineCredential = OAuthProvider.credential(
-                'oidc.line',
-                lineData.customToken
-            );
-            
-            // Link credential กับ account ปัจจุบัน
-            const linkResult = await currentUser.linkWithCredential(lineCredential);
-            console.log('✅ Firebase account linking successful:', linkResult);
-            
-        } catch (linkError) {
-            console.log('⚠️ Firebase credential linking failed, but backend linking successful:', linkError);
-            
-            // แม้ว่า Firebase credential linking จะล้มเหลว แต่ backend linking สำเร็จแล้ว
-            // เราสามารถใช้ custom token เพื่อเข้าสู่ระบบใหม่
-            if (linkData.customToken) {
-                await signOut(auth);
-                const newUserCredential = await signInWithCustomToken(auth, linkData.customToken);
-                console.log('✅ Re-authenticated with linked account:', newUserCredential.user);
-            }
-        }
-        
-        // ลบข้อมูล pending link
-        localStorage.removeItem('pendingLineLink');
-        
-        // แสดงข้อความสำเร็จ
-        if (successMessage) {
-            successMessage.innerHTML = `
-                <div style="margin-bottom: 10px;">
-                    <strong>✅ Account Linking Successful!</strong><br>
-                    Your LINE account has been successfully linked to your existing account.<br>
-                    Email: ${currentUser.email}
-                </div>
-            `;
-            successMessage.style.display = 'block';
-        }
-        
-        // ลบข้อความ error
-        if (errorMessage) {
-            errorMessage.style.display = 'none';
-        }
-        
-        // เก็บข้อมูล LINE ใน localStorage
-        localStorage.setItem('lineUser', JSON.stringify(lineData.user));
-        localStorage.setItem('lineCustomToken', linkData.customToken || lineData.customToken);
-        localStorage.setItem('lineAccessToken', lineData.lineProfile.accessToken);
-        localStorage.setItem('lineProfile', JSON.stringify(lineData.lineProfile));
-        localStorage.setItem('idTokenData', JSON.stringify(lineData.idTokenData));
-        
-    } catch (error) {
-        console.error('❌ Account linking error:', error);
-        throw error;
-    }
-}
 
 // ตรวจสอบ LINE authorization callback
 async function checkLineAuthCallback() {
@@ -1001,32 +865,8 @@ async function checkLineAuthCallback() {
                                 `;
                                 errorMessage.style.display = 'block';
                                 
-                                // เพิ่ม event listener สำหรับปุ่ม link accounts
-                                document.getElementById('linkAccountsBtn').addEventListener('click', async () => {
-                                    try {
-                                        await handleAccountLinking(loginData);
-                                    } catch (linkError) {
-                                        console.error('❌ Account linking failed:', linkError);
-                                        if (errorMessage) {
-                                            errorMessage.textContent = `Account linking failed: ${linkError.message}`;
-                                        }
-                                    }
-                                });
-                                
-                                // เพิ่ม event listener สำหรับปุ่ม Google sign in (ถ้ามี)
-                                const googleSignInBtn = document.getElementById('googleSignInBtn');
-                                if (googleSignInBtn) {
-                                    googleSignInBtn.addEventListener('click', async () => {
-                                        try {
-                                            await handleGoogleSignInForLinking(loginData);
-                                        } catch (googleError) {
-                                            console.error('❌ Google sign in for linking failed:', googleError);
-                                            if (errorMessage) {
-                                                errorMessage.textContent = `Google sign in failed: ${googleError.message}`;
-                                            }
-                                        }
-                                    });
-                                }
+                                // Note: Account linking functionality has been removed
+                                // Users can sign in with their existing account and then use LINE login
                             }
                             
                             // เก็บข้อมูล LINE สำหรับการ link ภายหลัง
@@ -1069,73 +909,7 @@ async function checkLineAuthCallback() {
     }
 }
 
-// ฟังก์ชันสำหรับตรวจสอบและจัดการ pending LINE link
-async function checkPendingLineLink() {
-    try {
-        const pendingLineLink = localStorage.getItem('pendingLineLink');
-        if (pendingLineLink) {
-            const lineData = JSON.parse(pendingLineLink);
-            console.log('🔄 Found pending LINE link for:', lineData.user.email);
-            
-            // ตรวจสอบ provider ที่ใช้ได้
-            const providers = lineData.availableProviders || [];
-            const providerText = providers.includes('google.com') ? 'Google' : 
-                               providers.includes('password') ? 'Email/Password' : 
-                               providers.join(', ');
-            
-            // แสดงข้อความแจ้งเตือนผู้ใช้
-            if (errorMessage) {
-                errorMessage.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <strong>🔄 Pending Account Link</strong><br>
-                        You have a pending LINE account link for ${lineData.user.email}.<br>
-                        This email already exists with ${providerText} provider.
-                    </div>
-                    <div style="margin-bottom: 10px;">
-                        <button id="completeLinkBtn" class="button" style="background-color: #28a745; margin-right: 10px;">
-                            🔗 Complete Account Linking
-                        </button>
-                        ${providers.includes('google.com') ? `
-                        <button id="googleSignInForLinkBtn" class="button" style="background-color: #4285f4;">
-                            🔐 Sign in with Google First
-                        </button>
-                        ` : ''}
-                    </div>
-                `;
-                errorMessage.style.display = 'block';
-                
-                // เพิ่ม event listener สำหรับปุ่ม complete link
-                document.getElementById('completeLinkBtn').addEventListener('click', async () => {
-                    try {
-                        await handleAccountLinking(lineData);
-                    } catch (linkError) {
-                        console.error('❌ Account linking failed:', linkError);
-                        if (errorMessage) {
-                            errorMessage.textContent = `Account linking failed: ${linkError.message}`;
-                        }
-                    }
-                });
-                
-                // เพิ่ม event listener สำหรับปุ่ม Google sign in (ถ้ามี)
-                const googleSignInForLinkBtn = document.getElementById('googleSignInForLinkBtn');
-                if (googleSignInForLinkBtn) {
-                    googleSignInForLinkBtn.addEventListener('click', async () => {
-                        try {
-                            await handleGoogleSignInForLinking(lineData);
-                        } catch (googleError) {
-                            console.error('❌ Google sign in for linking failed:', googleError);
-                            if (errorMessage) {
-                                errorMessage.textContent = `Google sign in failed: ${googleError.message}`;
-                            }
-                        }
-                    });
-                }
-            }
-        }
-    } catch (error) {
-        console.error('❌ Error checking pending LINE link:', error);
-    }
-}
+
 
 // Helper function to sync user data with backend
 async function syncUserWithBackend(user) {
@@ -1221,290 +995,3 @@ loginForm.addEventListener('submit', async (e) => {
     }
   }
 });
-
-// ===== ACCOUNT LINKING FUNCTIONALITY =====
-
-// Global variables for account linking
-let currentUser = null;
-let pendingCredential = null;
-
-// Get DOM elements for account linking
-const authSection = document.getElementById('authSection');
-const linkingSection = document.getElementById('linkingSection');
-const accountLinkingDialog = document.getElementById('accountLinkingDialog');
-const conflictEmail = document.getElementById('conflictEmail');
-
-// Buttons for account linking
-const lineSignInButton = document.getElementById('lineLoginBtn');
-const googleSignInButton = document.getElementById('googleLoginBtn');
-const linkLineButton = document.getElementById('linkLineButton');
-const linkGoogleButton = document.getElementById('linkGoogleButton');
-const logoutButton = document.getElementById('logoutBtn');
-const cancelLinkingButton = document.getElementById('cancelLinkingButton');
-const googleSignInForLinkingButton = document.getElementById('googleSignInForLinkingButton');
-
-// Event Listeners for account linking
-if (cancelLinkingButton) {
-    cancelLinkingButton.addEventListener('click', hideAccountLinkingDialog);
-}
-
-if (googleSignInForLinkingButton) {
-            googleSignInForLinkingButton.addEventListener('click', handleGoogleSignInForLinkingUI);
-}
-
-if (linkLineButton) {
-    linkLineButton.addEventListener('click', handleLinkLine);
-}
-
-if (linkGoogleButton) {
-    linkGoogleButton.addEventListener('click', handleLinkGoogle);
-}
-
-// Update the existing onAuthStateChanged to include account linking functionality
-const originalOnAuthStateChanged = onAuthStateChanged;
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        currentUser = user;
-        showUserInfo(user);
-        showLinkingSection();
-        hideAuthSection();
-        showStatusMessage('เข้าสู่ระบบสำเร็จ!', 'success');
-    } else {
-        currentUser = null;
-        hideUserInfo();
-        showAuthSection();
-        hideLinkingSection();
-        clearStatusMessage();
-    }
-});
-
-// LINE Login Handler with Account Linking
-async function handleLineLogin() {
-    try {
-        showStatusMessage('กำลังเข้าสู่ระบบด้วย LINE...', 'info');
-        
-        // Create LINE provider
-        const provider = new OAuthProvider('oidc.line');
-        provider.addScope('profile');
-        provider.addScope('openid');
-        provider.addScope('email');
-
-        // Sign in with popup
-        const result = await signInWithPopup(auth, provider);
-        console.log('✅ LINE login successful:', result.user);
-        
-    } catch (error) {
-        console.error('❌ LINE login error:', error);
-        
-        if (error.code === 'auth/account-exists-with-different-credential') {
-            // Email conflict detected
-            const email = error.email;
-            pendingCredential = error.credential;
-            
-            console.log(`📧 Email conflict: ${email} is used with a different account`);
-            showAccountLinkingDialog(email);
-        } else {
-            showStatusMessage(`เกิดข้อผิดพลาดในการล็อกอิน: ${error.message}`, 'error');
-        }
-    }
-}
-
-// Google Sign In for Linking Handler (UI Version)
-async function handleGoogleSignInForLinkingUI() {
-    try {
-        showStatusMessage('กำลังล็อกอินด้วย Google เพื่อเชื่อมโยงบัญชี...', 'info');
-        hideAccountLinkingDialog();
-        
-        const provider = new GoogleAuthProvider();
-        provider.addScope('profile');
-        provider.addScope('email');
-
-        const result = await signInWithPopup(auth, provider);
-        console.log('✅ Google login for linking successful:', result.user);
-        
-        // Link accounts
-        if (pendingCredential) {
-            await linkAccountsAndNotifyUser(result.user, pendingCredential);
-        }
-        
-    } catch (error) {
-        console.error('❌ Google login for linking error:', error);
-        showStatusMessage(`เกิดข้อผิดพลาดในการล็อกอิน: ${error.message}`, 'error');
-    }
-}
-
-// Link LINE Account
-async function handleLinkLine() {
-    if (!currentUser) {
-        showStatusMessage('กรุณาเข้าสู่ระบบก่อน', 'error');
-        return;
-    }
-
-    try {
-        showStatusMessage('กำลังเชื่อมโยงกับ LINE...', 'info');
-        
-        const provider = new OAuthProvider('oidc.line');
-        provider.addScope('profile');
-        provider.addScope('openid');
-        provider.addScope('email');
-
-        const result = await currentUser.linkWithPopup(provider);
-        console.log('✅ LINE account linked successfully:', result);
-        
-        showStatusMessage('เชื่อมโยงบัญชี LINE สำเร็จ!', 'success');
-        updateUserInfo();
-        
-    } catch (error) {
-        console.error('❌ LINE linking error:', error);
-        
-        if (error.code === 'auth/provider-already-linked') {
-            showStatusMessage('บัญชี LINE ถูกเชื่อมโยงแล้ว', 'info');
-        } else if (error.code === 'auth/credential-already-in-use') {
-            showStatusMessage('บัญชี LINE นี้ถูกใช้กับบัญชีอื่นแล้ว', 'error');
-        } else {
-            showStatusMessage(`เกิดข้อผิดพลาดในการเชื่อมโยง: ${error.message}`, 'error');
-        }
-    }
-}
-
-// Link Google Account
-async function handleLinkGoogle() {
-    if (!currentUser) {
-        showStatusMessage('กรุณาเข้าสู่ระบบก่อน', 'error');
-        return;
-    }
-
-    try {
-        showStatusMessage('กำลังเชื่อมโยงกับ Google...', 'info');
-        
-        const provider = new GoogleAuthProvider();
-        provider.addScope('profile');
-        provider.addScope('email');
-
-        const result = await currentUser.linkWithPopup(provider);
-        console.log('✅ Google account linked successfully:', result);
-        
-        showStatusMessage('เชื่อมโยงบัญชี Google สำเร็จ!', 'success');
-        updateUserInfo();
-        
-    } catch (error) {
-        console.error('❌ Google linking error:', error);
-        
-        if (error.code === 'auth/provider-already-linked') {
-            showStatusMessage('บัญชี Google ถูกเชื่อมโยงแล้ว', 'info');
-        } else if (error.code === 'auth/credential-already-in-use') {
-            showStatusMessage('บัญชี Google นี้ถูกใช้กับบัญชีอื่นแล้ว', 'error');
-        } else {
-            showStatusMessage(`เกิดข้อผิดพลาดในการเชื่อมโยง: ${error.message}`, 'error');
-        }
-    }
-}
-
-// Link Accounts and Notify User
-async function linkAccountsAndNotifyUser(user, credential) {
-    try {
-        showStatusMessage('กำลังเชื่อมโยงบัญชี...', 'info');
-        
-        // Convert string to credential object if necessary
-        const linkCredential = typeof credential === 'string' ? 
-            OAuthProvider.credential('oidc.line', credential) : credential;
-        
-        // Link the credential
-        const result = await user.linkWithCredential(linkCredential);
-        console.log('✅ Account linking successful:', result);
-        
-        // Clear pending credential
-        pendingCredential = null;
-        
-        showStatusMessage('✅ บัญชีถูกเชื่อมโยงเรียบร้อยแล้ว! ตอนนี้คุณสามารถล็อกอินด้วย Google หรือ LINE ก็ได้', 'success');
-        updateUserInfo();
-        
-    } catch (error) {
-        console.error('❌ Account linking failed:', error);
-        showStatusMessage(`ไม่สามารถเชื่อมโยงบัญชีได้: ${error.message}`, 'error');
-    }
-}
-
-// Show User Information
-function showUserInfo(user) {
-    document.getElementById('userDisplayName').textContent = user.displayName || 'ไม่ระบุชื่อ';
-    document.getElementById('userEmail').textContent = user.email || 'ไม่ระบุอีเมล';
-    document.getElementById('userAvatar').src = user.photoURL || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTJaIiBmaWxsPSIjNjY2Ii8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDE0IDcgMTYuMzMgNyAxOVYyMEgxN1YxOUMxNyAxNi4zMyAxNC42NyAxNCAxMiAxNFoiIGZpbGw9IiM2NjYiLz4KPC9zdmc+Cg==';
-    
-    // Get provider information
-    const providers = user.providerData.map(provider => {
-        switch (provider.providerId) {
-            case 'google.com': return 'Google';
-            case 'oidc.line': return 'LINE';
-            case 'password': return 'Email/Password';
-            default: return provider.providerId;
-        }
-    });
-    
-    document.getElementById('userProviders').textContent = providers.join(', ') || 'ไม่ระบุ';
-    
-    userInfo.classList.add('show');
-}
-
-// Update User Information
-function updateUserInfo() {
-    if (currentUser) {
-        showUserInfo(currentUser);
-    }
-}
-
-// Hide User Information
-function hideUserInfo() {
-    userInfo.classList.remove('show');
-}
-
-// Show Auth Section
-function showAuthSection() {
-    authSection.style.display = 'block';
-}
-
-// Hide Auth Section
-function hideAuthSection() {
-    authSection.style.display = 'none';
-}
-
-// Show Linking Section
-function showLinkingSection() {
-    linkingSection.style.display = 'block';
-}
-
-// Hide Linking Section
-function hideLinkingSection() {
-    linkingSection.style.display = 'none';
-}
-
-// Show Account Linking Dialog
-function showAccountLinkingDialog(email) {
-    conflictEmail.textContent = email;
-    accountLinkingDialog.classList.add('show');
-}
-
-// Hide Account Linking Dialog
-function hideAccountLinkingDialog() {
-    accountLinkingDialog.classList.remove('show');
-    pendingCredential = null;
-}
-
-// Show Status Message
-function showStatusMessage(message, type = 'info') {
-    statusMessage.textContent = message;
-    statusMessage.className = `status ${type} show`;
-    
-    // Auto hide after 5 seconds
-    setTimeout(() => {
-        statusMessage.classList.remove('show');
-    }, 5000);
-}
-
-// Clear Status Message
-function clearStatusMessage() {
-    statusMessage.classList.remove('show');
-}
-
-// Initialize the account linking functionality
-console.log('🚀 Account Linking functionality initialized'); 
