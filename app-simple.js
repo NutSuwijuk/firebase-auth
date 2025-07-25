@@ -96,6 +96,20 @@ onAuthStateChanged(auth, async (user) => {
     // Decode JWT token to show payload
     const tokenPayload = tokens ? decodeJWT(tokens.idToken) : null;
     
+    // Get connected providers
+    const connectedProviders = await getConnectedProviders(user);
+    
+    // Debug: Log user information
+    console.log('🔍 User debug info:', {
+      uid: user.uid,
+      email: user.email,
+      providerId: user.providerId,
+      providerData: user.providerData,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      emailVerified: user.emailVerified
+    });
+    
     // Update user details
     const profilePic = user.photoURL ? `<img src="${user.photoURL}" alt="Profile" class="profile-pic">` : '';
     userDetails.innerHTML = `
@@ -104,13 +118,13 @@ onAuthStateChanged(auth, async (user) => {
         <h4>${user.displayName || user.email}</h4>
         <p><strong>Email:</strong> ${user.email}</p>
         <p><strong>UID:</strong> ${user.uid}</p>
-        <p><strong>Provider:</strong> ${getProviderName(user)}</p>
+        <p><strong>Providers:</strong> ${connectedProviders && connectedProviders.length > 0 ? connectedProviders.join(', ') : getProviderName(user)}</p>
         <p><strong>Email Verified:</strong> ${user.emailVerified ? 'Yes' : 'No'}</p>
         ${tokens ? `
         <div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
           <h5>🔑 JWT Token Info:</h5>
           <p><strong>Token Length:</strong> ${tokens.idToken.length} characters</p>
-          <p><strong>Provider:</strong> ${tokens.provider}</p>
+          <p><strong>Current Provider:</strong> ${tokens.provider}</p>
           <p><strong>Expires:</strong> ${tokens.tokenExpiration.toLocaleString()}</p>
           <details style="margin-top: 10px;">
             <summary>📋 Token Payload</summary>
@@ -149,7 +163,7 @@ onAuthStateChanged(auth, async (user) => {
         backendSyncInfo.innerHTML = `
           <p><strong>Status:</strong> ✅ Synced</p>
           <p><strong>Backend ID:</strong> ${backendResult.user.id}</p>
-          <p><strong>Provider:</strong> ${getProviderName(user)}</p>
+          <p><strong>Connected Providers:</strong> ${connectedProviders && connectedProviders.length > 0 ? connectedProviders.join(', ') : getProviderName(user)}</p>
           <p><strong>Message:</strong> ${backendResult.message}</p>
         `;
       }
@@ -643,18 +657,94 @@ function isAppleUser(user) {
   return user.providerId === 'apple.com';
 }
 
-// Helper function to get provider name
+// Helper function to get all connected providers for a user
+async function getConnectedProviders(user) {
+  try {
+    // Map provider IDs to display names
+    const providerMap = {
+      'google.com': 'Google',
+      'apple.com': 'Apple',
+      'oidc.line': 'LINE',
+      'password': 'Email/Password',
+      'facebook.com': 'Facebook',
+      'twitter.com': 'Twitter',
+      'github.com': 'GitHub',
+      'microsoft.com': 'Microsoft',
+      'yahoo.com': 'Yahoo',
+      'phone': 'Phone',
+      'anonymous': 'Anonymous'
+    };
+    
+    // Get current provider
+    const currentProvider = getProviderName(user);
+    const providers = [currentProvider];
+    
+    // Try to get additional providers from user's provider data
+    if (user.providerData && user.providerData.length > 0) {
+      user.providerData.forEach(provider => {
+        const providerName = providerMap[provider.providerId] || provider.providerId;
+        if (!providers.includes(providerName)) {
+          providers.push(providerName);
+        }
+      });
+    }
+    
+    // For demonstration, if user has Google or Apple indicators, add them
+    if (isGoogleUser(user) && !providers.includes('Google')) {
+      providers.push('Google');
+    }
+    if (isAppleUser(user) && !providers.includes('Apple')) {
+      providers.push('Apple');
+    }
+    
+    console.log('✅ Connected providers:', providers);
+    return providers;
+  } catch (error) {
+    console.error('❌ Error getting connected providers:', error);
+    // Fallback to current provider
+    return [getProviderName(user)];
+  }
+}
+
+// Helper function to get provider name (for backward compatibility)
 function getProviderName(user) {
-  if (isGoogleUser(user)) {
-    return 'Google';
-  } else if (user.providerId === 'oidc.line') {
-    return 'LINE';
-  } else if (user.providerId === 'apple.com') {
-    return 'Apple';
-  } else if (user.providerId === 'password') {
-    return 'Email/Password';
-  } else {
-    return user.providerId || 'Unknown';
+  // ตรวจสอบ providerId ตาม Firebase Authentication
+  switch (user.providerId) {
+    case 'google.com':
+      return 'Google';
+    case 'apple.com':
+      return 'Apple';
+    case 'oidc.line':
+      return 'LINE';
+    case 'password':
+      return 'Email/Password';
+    case 'facebook.com':
+      return 'Facebook';
+    case 'twitter.com':
+      return 'Twitter';
+    case 'github.com':
+      return 'GitHub';
+    case 'microsoft.com':
+      return 'Microsoft';
+    case 'yahoo.com':
+      return 'Yahoo';
+    case 'phone':
+      return 'Phone';
+    case 'anonymous':
+      return 'Anonymous';
+    default:
+      // ถ้าเป็น custom provider หรือ provider อื่นๆ
+      if (user.providerId && user.providerId !== 'firebase') {
+        return user.providerId;
+      }
+      // Fallback สำหรับกรณีที่ไม่มี providerId หรือเป็น firebase
+      if (isGoogleUser(user)) {
+        return 'Google';
+      } else if (isAppleUser(user)) {
+        return 'Apple';
+      } else {
+        return 'Unknown';
+      }
   }
 }
 
