@@ -555,14 +555,28 @@ app.get('/api/auth/line/auth-url', async (req, res) => {
  * This follows the correct approach: check by email first, then either link or create
  */
 app.post('/api/auth/line/login', async (req, res) => {
+  // --- เพิ่มบรรทัดนี้ที่ด้านบนสุดของฟังก์ชัน ---
+  console.log(`[${new Date().toISOString()}] Received a request to /api/auth/line/login`);
+  
   try {
     const { code, state } = req.body;
 
+    console.log(`[${new Date().toISOString()}] 📥 Received request body:`, {
+      hasCode: !!code,
+      codeLength: code ? code.length : 0,
+      codePreview: code ? code.substring(0, 10) + '...' : 'none',
+      hasState: !!state,
+      stateValue: state || 'none'
+    });
+
     if (!code) {
-      return res.status(400).json({
+      console.log(`[${new Date().toISOString()}] ❌ Missing authorization code in request`);
+      const errorResponse = {
         success: false,
         error: "Authorization code is required"
-      });
+      };
+      console.log(`[${new Date().toISOString()}] 📤 Sending validation error response:`, errorResponse);
+      return res.status(400).json(errorResponse);
     }
 
     console.log("🔄 Processing LINE login with improved logic", { 
@@ -570,7 +584,14 @@ app.post('/api/auth/line/login', async (req, res) => {
       state
     });
 
+    console.log(`[${new Date().toISOString()}] 🔧 LINE Configuration:`, {
+      channelId: LINE_CONFIG.CHANNEL_ID,
+      redirectUri: LINE_CONFIG.REDIRECT_URI,
+      hasChannelSecret: !!LINE_CONFIG.CHANNEL_SECRET
+    });
+
     // Step 1: Exchange code for access token
+    console.log(`[${new Date().toISOString()}] Step 1: Exchanging authorization code for access token...`);
     const tokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/token', 
       new URLSearchParams({
         grant_type: 'authorization_code',
@@ -586,8 +607,10 @@ app.post('/api/auth/line/login', async (req, res) => {
     );
 
     const { access_token, id_token } = tokenResponse.data;
+    console.log(`[${new Date().toISOString()}] ✅ Successfully obtained access token and ID token from LINE`);
 
     // Step 2: Get user profile from LINE
+    console.log(`[${new Date().toISOString()}] Step 2: Getting user profile from LINE...`);
     const profileResponse = await axios.get('https://api.line.me/v2/profile', {
       headers: {
         'Authorization': `Bearer ${access_token}`
@@ -595,8 +618,14 @@ app.post('/api/auth/line/login', async (req, res) => {
     });
 
     const lineProfile = profileResponse.data;
+    console.log(`[${new Date().toISOString()}] ✅ Successfully obtained LINE profile:`, {
+      userId: lineProfile.userId,
+      displayName: lineProfile.displayName,
+      hasPicture: !!lineProfile.pictureUrl
+    });
 
     // Step 3: Verify ID token to get email
+    console.log(`[${new Date().toISOString()}] Step 3: Verifying ID token to get email...`);
     const idTokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/verify', 
       new URLSearchParams({
         id_token: id_token,
@@ -609,6 +638,10 @@ app.post('/api/auth/line/login', async (req, res) => {
     );
 
     const idTokenData = idTokenResponse.data;
+    console.log(`[${new Date().toISOString()}] ✅ Successfully verified ID token and obtained email:`, {
+      email: idTokenData.email,
+      emailVerified: idTokenData.email_verified
+    });
     
     // Extract LINE user data
     const lineUserId = lineProfile.userId;
@@ -617,10 +650,13 @@ app.post('/api/auth/line/login', async (req, res) => {
     const linePictureUrl = lineProfile.pictureUrl;
 
     if (!lineEmail) {
-      return res.status(400).json({
+      console.log(`[${new Date().toISOString()}] ❌ LINE email permission not granted`);
+      const errorResponse = {
         success: false,
         error: "Email permission not granted in LINE. Please grant email permission and try again."
-      });
+      };
+      console.log(`[${new Date().toISOString()}] 📤 Sending error response:`, errorResponse);
+      return res.status(400).json(errorResponse);
     }
 
     console.log("📧 LINE user data extracted:", {
@@ -635,14 +671,16 @@ app.post('/api/auth/line/login', async (req, res) => {
     let isAccountLinked = false;
 
     // Step 4: Check if user exists by email (THE CORRECT APPROACH)
+    console.log(`[${new Date().toISOString()}] Step 4: Checking if user exists by email: ${lineEmail}`);
     try {
       firebaseUser = await admin.auth().getUserByEmail(lineEmail);
-      console.log(`✅ Found existing user by email: ${lineEmail}, UID: ${firebaseUser.uid}`);
+      console.log(`[${new Date().toISOString()}] ✅ Found existing user by email: ${lineEmail}, UID: ${firebaseUser.uid}`);
       
       // Case 1: User found by email - this means we need to LINK accounts
       isAccountLinked = true;
       
       // Update existing user with latest LINE data
+      console.log(`[${new Date().toISOString()}] Updating existing Firebase user with LINE data...`);
       await admin.auth().updateUser(firebaseUser.uid, {
         displayName: lineDisplayName,
         photoURL: linePictureUrl,
@@ -661,15 +699,16 @@ app.post('/api/auth/line/login', async (req, res) => {
         hasLineAccount: true
       });
 
-      console.log(`🔗 Linked LINE account to existing Firebase user: ${firebaseUser.uid}`);
+      console.log(`[${new Date().toISOString()}] 🔗 Linked LINE account to existing Firebase user: ${firebaseUser.uid}`);
 
     } catch (error) {
       if (error.code === 'auth/user-not-found') {
-        console.log(`📝 User with email ${lineEmail} not found. Creating new user.`);
+        console.log(`[${new Date().toISOString()}] 📝 User with email ${lineEmail} not found. Creating new user.`);
         
         // Case 2: User not found by email - create new user
         isNewUser = true;
         
+        console.log(`[${new Date().toISOString()}] Creating new Firebase user...`);
         firebaseUser = await admin.auth().createUser({
           email: lineEmail,
           emailVerified: true, // Trust email from LINE
@@ -679,6 +718,7 @@ app.post('/api/auth/line/login', async (req, res) => {
         });
 
         // Set custom claims for new user
+        console.log(`[${new Date().toISOString()}] Setting custom claims for new user...`);
         await admin.auth().setCustomUserClaims(firebaseUser.uid, {
           provider: 'line.com',
           lineUserId: lineUserId,
@@ -692,13 +732,18 @@ app.post('/api/auth/line/login', async (req, res) => {
           isLineUser: true
         });
 
-        console.log(`✅ Created new Firebase user: ${firebaseUser.uid}`);
-      } else {
-        throw error; // Re-throw other errors
-      }
+        console.log(`[${new Date().toISOString()}] ✅ Created new Firebase user: ${firebaseUser.uid}`);
+          } else {
+      console.log(`[${new Date().toISOString()}] ❌ Firebase error (not user-not-found):`, {
+        errorCode: error.code,
+        errorMessage: error.message
+      });
+      throw error; // Re-throw other errors
+    }
     }
 
     // Step 5: Generate custom token for Firebase Auth
+    console.log(`[${new Date().toISOString()}] Step 5: Generating custom token for Firebase Auth...`);
     const customToken = await admin.auth().createCustomToken(firebaseUser.uid, {
       provider: 'line.com',
       lineUserId: lineUserId,
@@ -707,8 +752,9 @@ app.post('/api/auth/line/login', async (req, res) => {
       isNewUser: isNewUser,
       isAccountLinked: isAccountLinked
     });
+    console.log(`[${new Date().toISOString()}] ✅ Successfully generated custom token for Firebase Auth`);
 
-    console.log("🎉 LINE login successful", { 
+    console.log(`[${new Date().toISOString()}] 🎉 LINE login successful`, { 
       lineUserId: lineUserId,
       firebaseUid: firebaseUser.uid,
       email: lineEmail,
@@ -717,7 +763,7 @@ app.post('/api/auth/line/login', async (req, res) => {
       lastSignInTime: new Date().toISOString()
     });
 
-    res.json({
+    const responseData = {
       success: true,
       user: {
         uid: firebaseUser.uid,
@@ -760,22 +806,38 @@ app.post('/api/auth/line/login', async (req, res) => {
           "LINE account linked to existing account successfully"
       },
       timestamp: new Date().toISOString()
+    };
+
+    console.log(`[${new Date().toISOString()}] 📤 Sending response to client:`, {
+      success: responseData.success,
+      userUid: responseData.user.uid,
+      userEmail: responseData.user.email,
+      isNewUser: responseData.user.isNewUser,
+      isAccountLinked: responseData.user.isAccountLinked,
+      hasCustomToken: !!responseData.customToken,
+      customTokenLength: responseData.customToken ? responseData.customToken.length : 0
     });
 
+    res.json(responseData);
+
   } catch (error) {
-    console.error("❌ LINE login error:", error);
-    console.error("Error details:", {
+    console.error(`[${new Date().toISOString()}] ❌ LINE login error:`, error);
+    console.error(`[${new Date().toISOString()}] Error details:`, {
       message: error.message,
       response: error.response?.data,
       status: error.response?.status,
       config: error.config
     });
-    res.status(500).json({
+    
+    const errorResponse = {
       success: false,
       error: "LINE login failed",
       details: error.message,
       lineError: error.response?.data
-    });
+    };
+    
+    console.log(`[${new Date().toISOString()}] 📤 Sending error response:`, errorResponse);
+    res.status(500).json(errorResponse);
   }
 });
 
