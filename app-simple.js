@@ -4,18 +4,31 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, on
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyBH3BdZw6qTyiYK7cZ7Arapeyoc2Nryft0",
-    authDomain: "basic-firebase-9e03e.firebaseapp.com",
-    projectId: "basic-firebase-9e03e",
-    storageBucket: "basic-firebase-9e03e.firebasestorage.app",
-    messagingSenderId: "351515692984",
-    appId: "1:351515692984:web:cd4eec800311f35fe7494d",
-    measurementId: "G-T8R4DBMKD5"
-  };
+    apiKey: "AIzaSyCFZee6iS2G3DR4TYxwZRFiepOZHPP3ggQ",
+    authDomain: "daring-calling-827.firebaseapp.com",
+    databaseURL: "https://daring-calling-827.firebaseio.com",
+    projectId: "daring-calling-827",
+    storageBucket: "daring-calling-827.firebasestorage.app",
+    messagingSenderId: "525752158341",
+    appId: "1:525752158341:web:12cd034e9bbe3d9d0cc1ec"
+};
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+
+// Test Firebase connection
+auth.onAuthStateChanged((user) => {
+  console.log('Firebase Auth State Changed:', user ? 'User logged in' : 'No user');
+}, (error) => {
+  console.error('Firebase Auth Error:', error);
+  const firebaseStatus = document.getElementById('firebaseStatus');
+  if (firebaseStatus) {
+    firebaseStatus.textContent = `❌ Firebase error: ${error.message}`;
+    firebaseStatus.className = 'status error';
+    firebaseStatus.style.display = 'block';
+  }
+});
 
 
 
@@ -58,6 +71,7 @@ const firebaseStatus = document.getElementById('firebaseStatus');
 if (firebaseStatus) {
   firebaseStatus.textContent = '✅ Firebase initialized successfully';
   firebaseStatus.className = 'status success';
+  firebaseStatus.style.display = 'block';
 }
 
 // Check backend health on page load
@@ -71,6 +85,7 @@ checkBackendHealth().then(isAvailable => {
       backendStatus.textContent = '⚠️ Backend is not available (localhost:3000)';
       backendStatus.className = 'status error';
     }
+    backendStatus.style.display = 'block';
   }
 });
 
@@ -215,25 +230,168 @@ onAuthStateChanged(auth, async (user) => {
 googleLoginBtn.addEventListener('click', async () => {
   try {
     console.log('🔄 Attempting Google sign in with popup...');
+    
+    // Show loading status
+    if (statusMessage) {
+      statusMessage.textContent = '🔄 Opening Google sign in popup...';
+      statusMessage.className = 'status warning';
+    }
+    
     googleProvider.setCustomParameters({
       prompt: 'select_account',
       access_type: 'offline',
       include_granted_scopes: 'true'
     });
+    
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
     const isGoogle = isGoogleUser(user);
     const providerText = isGoogle ? 'Google' : 'Firebase';
     const accountType = result._tokenResponse?.isNewUser ? 'new account' : 'existing account';
+    
+    console.log('✅ Google sign in successful:', user);
+    
     if (successMessage) {
       successMessage.textContent = `Successfully signed in with ${providerText} (${accountType}): ${user.displayName || user.email}`;
+      successMessage.style.display = 'block';
     }
     if (errorMessage) {
-      errorMessage.textContent = '';
+      errorMessage.style.display = 'none';
     }
+    
+    // Update status message
+    if (statusMessage) {
+      statusMessage.textContent = `Signed in with Google as ${user.displayName || user.email}`;
+      statusMessage.className = 'status success';
+    }
+    
     // No need to manually trigger onAuthStateChanged, it will fire automatically
   } catch (error) {
-    showError(error);
+    console.error('❌ Google sign in error:', error);
+    
+    // Handle specific Google auth errors
+    let errorText = error.message;
+    let helpText = '';
+    let troubleshootingSteps = '';
+    
+    if (error.code === 'auth/popup-blocked') {
+      errorText = 'Google sign in popup was blocked by browser';
+      helpText = `
+        <div style="margin-top: 10px; padding: 15px; background-color: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545;">
+          <strong>🔒 Browser Settings:</strong>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>Allow popups for this website</li>
+            <li>Check your browser's popup blocker settings</li>
+            <li>Try refreshing the page and try again</li>
+            <li>Disable ad blockers temporarily</li>
+          </ul>
+        </div>
+      `;
+    } else if (error.code === 'auth/unauthorized-domain') {
+      errorText = 'Domain not authorized for Google sign in';
+      helpText = `
+        <div style="margin-top: 10px; padding: 15px; background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <strong>🔧 Setup Required:</strong>
+          <p style="margin: 10px 0;">Please add this domain to Firebase Console > Authentication > Settings > Authorized domains:</p>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>localhost</li>
+            <li>127.0.0.1</li>
+            <li>Your actual domain (if deployed)</li>
+          </ul>
+        </div>
+      `;
+    } else if (error.code === 'auth/operation-not-allowed') {
+      errorText = 'Google sign in not enabled';
+      helpText = `
+        <div style="margin-top: 10px; padding: 15px; background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <strong>🔧 Setup Required:</strong>
+          <p style="margin: 10px 0;">Please enable Google provider in Firebase Console > Authentication > Sign-in method</p>
+        </div>
+      `;
+    } else if (error.code === 'auth/cancelled-popup-request') {
+      errorText = 'Google sign in was cancelled';
+      helpText = `
+        <div style="margin-top: 10px; padding: 15px; background-color: #d1ecf1; border-radius: 8px; border-left: 4px solid #17a2b8;">
+          <strong>ℹ️ User Action:</strong>
+          <p style="margin: 10px 0;">You cancelled the Google sign in process. Please try again.</p>
+        </div>
+      `;
+    } else if (error.code === 'auth/popup-closed-by-user') {
+      errorText = 'Google sign in popup was closed';
+      helpText = `
+        <div style="margin-top: 10px; padding: 15px; background-color: #d1ecf1; border-radius: 8px; border-left: 4px solid #17a2b8;">
+          <strong>ℹ️ User Action:</strong>
+          <p style="margin: 10px 0;">You closed the Google sign in popup. Please complete the sign in process.</p>
+        </div>
+      `;
+    } else {
+      errorText = 'Google sign in failed';
+      helpText = `
+        <div style="margin-top: 10px; padding: 15px; background-color: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545;">
+          <strong>🔧 Troubleshooting:</strong>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>Check your internet connection</li>
+            <li>Try refreshing the page</li>
+            <li>Clear browser cache and cookies</li>
+            <li>Check Firebase Console settings</li>
+            <li>Verify Google OAuth configuration</li>
+          </ul>
+        </div>
+      `;
+    }
+    
+    // Show detailed error message
+    if (errorMessage) {
+      errorMessage.innerHTML = `
+        <div style="margin-bottom: 15px;">
+          <strong>❌ ${errorText}</strong>
+          <p style="margin: 5px 0; color: #6c757d; font-size: 14px;">Error code: ${error.code || 'unknown'}</p>
+          <p style="margin: 5px 0; color: #6c757d; font-size: 14px;">Error details: ${error.message}</p>
+        </div>
+        ${helpText}
+        <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button id="retryGoogleLoginBtn" class="button" style="background-color: #4285f4; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            🔄 Try Google Login Again
+          </button>
+          <button id="checkFirebaseBtn" class="button" style="background-color: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            🔍 Check Firebase Status
+          </button>
+          <button id="clearGoogleErrorBtn" class="button" style="background-color: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            ✖️ Clear Error
+          </button>
+        </div>
+      `;
+      errorMessage.style.display = 'block';
+      
+      // Add event listeners for buttons
+      document.getElementById('retryGoogleLoginBtn').addEventListener('click', () => {
+        errorMessage.style.display = 'none';
+        googleLoginBtn.click();
+      });
+      
+      document.getElementById('checkFirebaseBtn').addEventListener('click', () => {
+        // Check Firebase status
+        const firebaseStatus = document.getElementById('firebaseStatus');
+        if (firebaseStatus) {
+          firebaseStatus.textContent = '✅ Firebase initialized successfully';
+          firebaseStatus.className = 'status success';
+          firebaseStatus.style.display = 'block';
+        }
+      });
+      
+      document.getElementById('clearGoogleErrorBtn').addEventListener('click', () => {
+        errorMessage.style.display = 'none';
+      });
+    }
+    
+    if (successMessage) {
+      successMessage.style.display = 'none';
+    }
+    
+    if (statusMessage) {
+      statusMessage.textContent = `Google sign in failed: ${errorText}`;
+      statusMessage.className = 'status error';
+    }
   }
 });
 

@@ -87,7 +87,7 @@ try {
   
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: process.env.FIREBASE_DATABASE_URL || "https://basic-firebase-9e03e-default-rtdb.firebaseio.com"
+    databaseURL: process.env.FIREBASE_DATABASE_URL || "https://daring-calling-827.firebaseio.com"
   });
 }
 
