@@ -358,7 +358,7 @@
         <div class="info">
             <h3>📋 Setup Instructions:</h3>
             <ol>
-                <li><strong>Start Backend:</strong> <code>node server.js</code> (port 3000)</li>
+                <li><strong>Deploy Functions:</strong> <code>firebase deploy --only functions</code></li>
                 <li><strong>Firebase Config:</strong> ตรวจสอบ Firebase Console settings</li>
                 <li><strong>Authorized Domains:</strong> เพิ่ม localhost และ 127.0.0.1</li>
                 <li><strong>Google OAuth:</strong> เปิดใช้งานใน Firebase Console</li>
@@ -385,7 +385,7 @@
 
         <!-- Status Messages -->
         <div id="backendStatus" class="status warning show">
-            🔍 Checking backend status...
+            🔍 Checking Firebase Functions status...
         </div>
 
         <div id="firebaseStatus" class="status warning show">
@@ -470,6 +470,208 @@
         <div id="errorMessage" class="status error" style="display: none;"></div>
     </div>
 
-    <script type="module" src="app-simple.js"></script>
+    <!-- LINE Login JavaScript -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithCustomToken, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Firebase configuration for emulator
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            authDomain: "daring-calling-827.firebaseapp.com",
+            projectId: "daring-calling-827",
+            storageBucket: "daring-calling-827.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdefghijklmnop"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        // Connect to emulator
+        if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
+            connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+        }
+
+        // LINE Login Functions
+        const FUNCTIONS_BASE_URL = 'http://127.0.0.1:5001/daring-calling-827/asia-southeast1';
+
+        // Handle LINE login button click
+        const lineLoginBtn = document.getElementById('lineLoginBtn');
+        if (lineLoginBtn) {
+            lineLoginBtn.addEventListener('click', async () => {
+                try {
+                    console.log('🟩 Starting LINE login process...');
+                    
+                    // Show status
+                    const statusDiv = document.getElementById('statusMessage');
+                    if (statusDiv) {
+                        statusDiv.style.display = 'block';
+                        statusDiv.textContent = '🔄 Getting LINE authorization URL...';
+                        statusDiv.className = 'status warning';
+                    }
+                    
+                    // Get authorization URL from Cloud Functions
+                    const response = await fetch(`${FUNCTIONS_BASE_URL}/getLineAuthUrlHttp`);
+                    const authData = await response.json();
+                    
+                    if (!authData.success) {
+                        throw new Error(authData.error || 'Failed to get LINE authorization URL');
+                    }
+
+                    console.log('✅ Got LINE authorization URL:', authData.authUrl);
+                    
+                    if (statusDiv) {
+                        statusDiv.textContent = '🔄 Redirecting to LINE authorization...';
+                    }
+                    
+                    // Store state for verification
+                    localStorage.setItem('lineAuthState', authData.state);
+                    localStorage.setItem('lineAuthTimestamp', Date.now().toString());
+
+                    // Redirect to LINE authorization page
+                    window.location.href = authData.authUrl;
+
+                } catch (error) {
+                    console.error('❌ LINE login error:', error);
+                    
+                    const statusDiv = document.getElementById('statusMessage');
+                    if (statusDiv) {
+                        statusDiv.textContent = `❌ LINE login failed: ${error.message}`;
+                        statusDiv.className = 'status error';
+                    }
+                }
+            });
+        }
+
+        // Check for LINE callback
+        const urlParams = new URLSearchParams(window.location.search);
+        const lineCode = urlParams.get('code');
+        const lineState = urlParams.get('state');
+        const lineError = urlParams.get('error');
+
+        if (lineCode && lineState) {
+            // Process LINE callback
+            console.log('LINE callback detected, processing...');
+            
+            const statusDiv = document.getElementById('statusMessage');
+            if (statusDiv) {
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<span class="loading"></span>กำลังประมวลผลการเข้าสู่ระบบ LINE...';
+                statusDiv.className = 'status warning';
+            }
+
+            async function processLineCallback() {
+                try {
+                    const response = await fetch(`${FUNCTIONS_BASE_URL}/processLineCallbackHttp`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            code: lineCode,
+                            state: lineState
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Sign in to Firebase with custom token
+                        const userCredential = await signInWithCustomToken(auth, data.customToken);
+                        const user = userCredential.user;
+
+                        // Show success
+                        if (statusDiv) {
+                            statusDiv.className = 'status success';
+                            statusDiv.innerHTML = '✅ เข้าสู่ระบบ LINE สำเร็จ!';
+                        }
+
+                        // Store LINE profile data
+                        localStorage.setItem('lineProfile', JSON.stringify(data.lineProfile));
+                        localStorage.setItem('lineIdTokenData', JSON.stringify(data.idTokenData));
+
+                        // Clear URL parameters
+                        window.history.replaceState({}, document.title, window.location.pathname);
+
+                        // Refresh page to show user info
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+
+                } catch (error) {
+                    console.error('Error processing LINE callback:', error);
+                    if (statusDiv) {
+                        statusDiv.className = 'status error';
+                        statusDiv.innerHTML = `❌ เกิดข้อผิดพลาด: ${error.message}`;
+                    }
+                }
+            }
+
+            // Start processing
+            processLineCallback();
+        }
+
+        // Check for LINE errors
+        if (lineError) {
+            const statusDiv = document.getElementById('statusMessage');
+            if (statusDiv) {
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = `❌ เกิดข้อผิดพลาดจาก LINE: ${lineError}`;
+                statusDiv.className = 'status error';
+            }
+            
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Auth state listener
+        auth.onAuthStateChanged((user) => {
+            console.log('Firebase Auth State Changed:', user ? 'User logged in' : 'No user');
+            
+            const userInfo = document.getElementById('userInfo');
+            const userDetails = document.getElementById('userDetails');
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            if (user) {
+                // User is signed in
+                if (userInfo) userInfo.style.display = 'block';
+                if (userDetails) {
+                    userDetails.innerHTML = `
+                        <h3>👤 User Information</h3>
+                        <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
+                        <p><strong>Display Name:</strong> ${user.displayName || 'N/A'}</p>
+                        <p><strong>UID:</strong> ${user.uid}</p>
+                        <p><strong>Provider:</strong> ${user.providerData[0]?.providerId || 'Custom Token'}</p>
+                    `;
+                }
+                if (logoutBtn) logoutBtn.style.display = 'block';
+            } else {
+                // User is signed out
+                if (userInfo) userInfo.style.display = 'none';
+                if (logoutBtn) logoutBtn.style.display = 'none';
+            }
+        });
+
+        // Handle logout
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await auth.signOut();
+                    localStorage.removeItem('lineProfile');
+                    localStorage.removeItem('lineIdTokenData');
+                    console.log('✅ User signed out successfully');
+                } catch (error) {
+                    console.error('❌ Logout error:', error);
+                }
+            });
+        }
+    </script>
 </body>
 </html> 

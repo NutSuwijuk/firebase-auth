@@ -1,6 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup, OAuthProvider, signInWithCredential, signInWithCustomToken, linkWithCredential, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, OAuthProvider, signInWithCredential, signInWithCustomToken, linkWithCredential, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -16,6 +17,33 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const functions = getFunctions(app, 'asia-southeast1');
+
+// Initialize Cloud Functions (HTTP endpoints)
+// Use emulator URL for development
+const FUNCTIONS_BASE_URL = 'http://127.0.0.1:5001/daring-calling-827/asia-southeast1';
+
+// Debug: Log which URL we're using
+console.log('🌐 Using Functions URL:', FUNCTIONS_BASE_URL);
+console.log('📍 Current hostname:', window.location.hostname);
+
+// Helper function to call HTTP functions
+async function callHttpFunction(functionName, data = null) {
+  const url = `${FUNCTIONS_BASE_URL}/${functionName}`;
+  const options = {
+    method: data ? 'POST' : 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  };
+  
+  if (data) {
+    options.body = JSON.stringify(data);
+  }
+  
+  const response = await fetch(url, options);
+  return response.json();
+}
 
 // Test Firebase connection
 auth.onAuthStateChanged((user) => {
@@ -74,15 +102,15 @@ if (firebaseStatus) {
   firebaseStatus.style.display = 'block';
 }
 
-// Check backend health on page load
-checkBackendHealth().then(isAvailable => {
+// Check Firebase Functions health on page load
+checkFunctionsHealth().then(isAvailable => {
   const backendStatus = document.getElementById('backendStatus');
   if (backendStatus) {
     if (isAvailable) {
-      backendStatus.textContent = '✅ Backend is running (localhost:3000)';
+      backendStatus.textContent = '✅ Firebase Functions are ready';
       backendStatus.className = 'status success';
     } else {
-      backendStatus.textContent = '⚠️ Backend is not available (localhost:3000)';
+      backendStatus.textContent = '⚠️ Firebase Functions are not available';
       backendStatus.className = 'status error';
     }
     backendStatus.style.display = 'block';
@@ -93,8 +121,46 @@ checkBackendHealth().then(isAvailable => {
 
 // Note: Account linking functionality has been removed
 
+// Handle Google redirect result when page loads
+async function handleGoogleRedirectResult() {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      const user = result.user;
+      const isGoogle = isGoogleUser(user);
+      const providerText = isGoogle ? 'Google' : 'Firebase';
+      const accountType = result._tokenResponse?.isNewUser ? 'new account' : 'existing account';
+      
+      console.log('✅ Google sign in successful:', user);
+      
+      if (successMessage) {
+        successMessage.textContent = `Successfully signed in with ${providerText} (${accountType}): ${user.displayName || user.email}`;
+        successMessage.style.display = 'block';
+      }
+      if (errorMessage) {
+        errorMessage.style.display = 'none';
+      }
+      
+      // Update status message
+      if (statusMessage) {
+        statusMessage.textContent = `Signed in with Google as ${user.displayName || user.email}`;
+        statusMessage.className = 'status success';
+      }
+    }
+  } catch (error) {
+    console.error('❌ Google redirect result error:', error);
+    if (errorMessage) {
+      errorMessage.textContent = `Google sign in failed: ${error.message}`;
+      errorMessage.style.display = 'block';
+    }
+  }
+}
+
 // ตรวจสอบ LINE authorization callback เมื่อโหลดหน้า
 setTimeout(checkLineAuthCallback, 500);
+
+// Handle Google redirect result when page loads
+setTimeout(handleGoogleRedirectResult, 500);
 
 // Handle user state changes
 onAuthStateChanged(auth, async (user) => {
@@ -226,14 +292,14 @@ onAuthStateChanged(auth, async (user) => {
 
 // Remove redirect result handler (not needed for popup-based login)
 
-// Handle Google login button click (use popup)
+// Handle Google login button click (use redirect instead of popup)
 googleLoginBtn.addEventListener('click', async () => {
   try {
-    console.log('🔄 Attempting Google sign in with popup...');
+    console.log('🔄 Attempting Google sign in with redirect...');
     
     // Show loading status
     if (statusMessage) {
-      statusMessage.textContent = '🔄 Opening Google sign in popup...';
+      statusMessage.textContent = '🔄 Redirecting to Google sign in...';
       statusMessage.className = 'status warning';
     }
     
@@ -243,29 +309,10 @@ googleLoginBtn.addEventListener('click', async () => {
       include_granted_scopes: 'true'
     });
     
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    const isGoogle = isGoogleUser(user);
-    const providerText = isGoogle ? 'Google' : 'Firebase';
-    const accountType = result._tokenResponse?.isNewUser ? 'new account' : 'existing account';
-    
-    console.log('✅ Google sign in successful:', user);
-    
-    if (successMessage) {
-      successMessage.textContent = `Successfully signed in with ${providerText} (${accountType}): ${user.displayName || user.email}`;
-      successMessage.style.display = 'block';
-    }
-    if (errorMessage) {
-      errorMessage.style.display = 'none';
-    }
-    
-    // Update status message
-    if (statusMessage) {
-      statusMessage.textContent = `Signed in with Google as ${user.displayName || user.email}`;
-      statusMessage.className = 'status success';
-    }
-    
-    // No need to manually trigger onAuthStateChanged, it will fire automatically
+    // Use redirect instead of popup to avoid browser policy issues
+    await signInWithRedirect(auth, googleProvider);
+    // Note: The page will redirect to Google, so code below won't execute immediately
+    // The result will be handled when the page loads back
   } catch (error) {
     console.error('❌ Google sign in error:', error);
     
@@ -395,10 +442,6 @@ googleLoginBtn.addEventListener('click', async () => {
   }
 });
 
-
-
-
-
 // Handle LINE login button click
 const lineLoginBtn = document.getElementById('lineLoginBtn');
 if (lineLoginBtn) {
@@ -420,38 +463,23 @@ if (lineLoginBtn) {
                 lineLoginInstructions.style.display = 'block';
             }
             
-            // ตรวจสอบสถานะ backend ก่อน
+            // ตรวจสอบสถานะ Firebase Functions
             if (lineStatus) {
-                lineStatus.textContent = '🔍 Checking backend server...';
+                lineStatus.textContent = '🔍 Checking Firebase Functions...';
             }
             
-            const isBackendAvailable = await checkBackendHealth();
-            if (!isBackendAvailable) {
-                if (lineStatus) {
-                    lineStatus.textContent = '❌ Backend server not available';
-                    lineStatus.className = 'status error';
-                }
-                throw new Error('Backend server is not available. Please start the server with: node server.js');
-            }
-            
+            // Firebase Functions จะทำงานอัตโนมัติ ไม่ต้องตรวจสอบ backend
             if (lineStatus) {
-                lineStatus.textContent = '✅ Backend server is running';
+                lineStatus.textContent = '✅ Firebase Functions ready';
                 lineStatus.className = 'status success';
             }
 
-            // ขั้นตอนที่ 1: ขอ authorization URL จาก backend
+            // ขั้นตอนที่ 1: ขอ authorization URL จาก Cloud Functions
             if (lineStatus) {
                 lineStatus.textContent = '📡 Getting LINE authorization URL...';
             }
             
-            const authResponse = await fetch('http://localhost:3000/api/auth/line/auth-url', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            const authData = await authResponse.json();
+            const authData = await callHttpFunction('getLineAuthUrlHttp');
             
             if (!authData.success) {
                 if (lineStatus) {
@@ -524,14 +552,14 @@ if (lineLoginBtn) {
                 let troubleshootingSteps = '';
                 
                 // จัดการ error ตามประเภท
-                if (error.message.includes('Backend server not available')) {
-                    errorText = 'Backend server is not running';
+                if (error.message.includes('Firebase Functions') || error.message.includes('functions')) {
+                    errorText = 'Firebase Functions error';
                     helpText = `
                         <div style="margin-top: 10px; padding: 15px; background-color: #d1ecf1; border-radius: 8px; border-left: 4px solid #17a2b8;">
                             <strong>🔧 Solution:</strong>
-                            <p style="margin: 10px 0;">Please start the backend server with:</p>
-                            <pre style="background-color: #f8f9fa; padding: 12px; border-radius: 5px; margin: 10px 0; border: 1px solid #dee2e6;">node server.js</pre>
-                            <p style="margin: 10px 0; font-size: 14px; color: #6c757d;">Make sure the server is running on port 3000</p>
+                            <p style="margin: 10px 0;">Please deploy Firebase Functions with:</p>
+                            <pre style="background-color: #f8f9fa; padding: 12px; border-radius: 5px; margin: 10px 0; border: 1px solid #dee2e6;">firebase deploy --only functions</pre>
+                            <p style="margin: 10px 0; font-size: 14px; color: #6c757d;">Make sure your Firebase project is properly configured</p>
                         </div>
                     `;
                 } else if (error.message.includes('network') || error.message.includes('fetch')) {
@@ -573,8 +601,8 @@ if (lineLoginBtn) {
                         <button id="retryLineLoginBtn" class="button" style="background-color: #00c300; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                             🔄 Try LINE Login Again
                         </button>
-                        <button id="checkBackendBtn" class="button" style="background-color: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                            🔍 Check Backend Status
+                        <button id="checkFunctionsBtn" class="button" style="background-color: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                            🔍 Check Functions Status
                         </button>
                         <button id="clearErrorBtn" class="button" style="background-color: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
                             ✖️ Clear Error
@@ -594,19 +622,24 @@ if (lineLoginBtn) {
                     lineLoginBtn.click();
                 });
                 
-                // เพิ่ม event listener สำหรับปุ่ม check backend
-                document.getElementById('checkBackendBtn').addEventListener('click', async () => {
-                    const isAvailable = await checkBackendHealth();
-                    const backendStatus = document.getElementById('backendStatus');
-                    if (backendStatus) {
-                        if (isAvailable) {
-                            backendStatus.textContent = '✅ Backend is running (localhost:3000)';
-                            backendStatus.className = 'status success';
-                        } else {
-                            backendStatus.textContent = '⚠️ Backend is not available (localhost:3000)';
-                            backendStatus.className = 'status error';
+                // เพิ่ม event listener สำหรับปุ่ม check functions
+                document.getElementById('checkFunctionsBtn').addEventListener('click', async () => {
+                            // ตรวจสอบ Firebase Functions โดยการเรียกฟังก์ชันทดสอบ
+        try {
+            await callHttpFunction('getLineAuthUrlHttp');
+            const functionsStatus = document.getElementById('firebaseStatus');
+                        if (functionsStatus) {
+                            functionsStatus.textContent = '✅ Firebase Functions are working';
+                            functionsStatus.className = 'status success';
+                            functionsStatus.style.display = 'block';
                         }
-                        backendStatus.style.display = 'block';
+                    } catch (error) {
+                        const functionsStatus = document.getElementById('firebaseStatus');
+                        if (functionsStatus) {
+                            functionsStatus.textContent = `❌ Firebase Functions error: ${error.message}`;
+                            functionsStatus.className = 'status error';
+                            functionsStatus.style.display = 'block';
+                        }
                     }
                 });
                 
@@ -906,19 +939,26 @@ function getProviderName(user) {
   }
 }
 
-// Helper function to check backend health
-async function checkBackendHealth() {
+// Helper function to check Firebase Functions health
+async function checkFunctionsHealth() {
   try {
-    const response = await fetch('http://localhost:3000/api/health');
-    if (response.ok) {
-      console.log('✅ Backend is running');
+    // ตรวจสอบ Firebase Functions โดยการเรียกฟังก์ชันทดสอบ
+    const response = await fetch(`${FUNCTIONS_BASE_URL}/getLineAuthUrlHttp`, {
+      method: 'GET',
+      headers: {
+        'Origin': 'http://127.0.0.1:5502'
+      }
+    });
+    
+    if (response.ok || response.status === 204) {
+      console.log('✅ Firebase Functions are working');
       return true;
     } else {
-      console.warn('⚠️ Backend health check failed:', response.status);
+      console.warn('⚠️ Firebase Functions returned status:', response.status);
       return false;
     }
   } catch (error) {
-    console.warn('⚠️ Backend is not available:', error.message);
+    console.warn('⚠️ Firebase Functions are not available:', error.message);
     return false;
   }
 }
@@ -1010,18 +1050,7 @@ async function checkLineAuthCallback() {
 
             try {
                 // แลกเปลี่ยน authorization code เป็น token
-                const loginResponse = await fetch('http://localhost:3000/api/auth/line/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        code: code,
-                        state: state
-                    })
-                });
-
-                const loginData = await loginResponse.json();
+                const loginData = await callHttpFunction('processLineCallbackHttp', { code: code, state: state });
                 
                 if (!loginData.success) {
                     throw new Error(loginData.error || 'LINE login failed');
@@ -1159,47 +1188,11 @@ async function checkLineAuthCallback() {
 
 
 
-// Helper function to sync user data with backend
+// Helper function to sync user data with backend (deprecated - using Cloud Functions now)
 async function syncUserWithBackend(user) {
   try {
-    // Check if backend is available
-    const isBackendAvailable = await checkBackendHealth();
-    if (!isBackendAvailable) {
-      console.warn('⚠️ Skipping backend sync - backend not available');
-      return null;
-    }
-
-    // Get Firebase tokens
-    const tokens = await getFirebaseTokens(user);
-    
-    const userData = {
-      firebase_uid: user.uid,
-      email: user.email,
-      display_name: user.displayName || '',
-      photo_url: user.photoURL || '',
-      email_verified: user.emailVerified,
-      provider: getProviderName(user).toLowerCase(),
-      last_login: new Date().toISOString(),
-      // Include JWT token for backend verification
-      id_token: tokens?.idToken || null
-    };
-
-    const response = await fetch('http://localhost:3000/api/auth/sync-user', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData)
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('✅ User synced with backend:', result);
-      return result;
-    } else {
-      console.error('❌ Failed to sync user with backend:', response.status);
-      return null;
-    }
+    console.log('ℹ️ Backend sync is deprecated - using Cloud Functions instead');
+    return null;
   } catch (error) {
     console.error('❌ Error syncing user with backend:', error.message);
     return null;
