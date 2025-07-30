@@ -17,6 +17,41 @@ setGlobalOptions({
   maxInstances: 5,
 });
 
+// Performance Metrics Tracking
+let invocationCount = {
+  getLineAuthUrlHttp: 0,
+  processLineCallbackHttp: 0,
+};
+
+// Global performance tracking
+let globalPerformance = {
+  totalInvocations: 0,
+  totalExecutionTime: 0,
+  totalMemoryUsed: 0,
+  totalOutboundSize: 0,
+  startTime: Date.now(),
+  functionStats: {
+    getLineAuthUrlHttp: {
+      invocations: 0,
+      totalTime: 0,
+      totalMemory: 0,
+      totalOutbound: 0,
+      avgTime: 0,
+      avgMemory: 0,
+      avgOutbound: 0
+    },
+    processLineCallbackHttp: {
+      invocations: 0,
+      totalTime: 0,
+      totalMemory: 0,
+      totalOutbound: 0,
+      avgTime: 0,
+      avgMemory: 0,
+      avgOutbound: 0
+    }
+  }
+};
+
 // LINE OAuth Configuration
 const LINE_CONFIG = {
   CHANNEL_ID: "2007733529",
@@ -27,6 +62,162 @@ const LINE_CONFIG = {
   PROFILE_URL: "https://api.line.me/v2/profile",
   VERIFY_URL: "https://api.line.me/oauth2/v2.1/verify",
 };
+
+/**
+ * Helper function to log performance metrics
+ * @param {string} functionName - Name of the function
+ * @param {number} startTime - Start time in milliseconds
+ * @param {number} startMemory - Start memory usage in MB
+ * @param {number} responseSize - Response size in bytes
+ */
+function logPerformanceMetrics(functionName, startTime, startMemory, responseSize = 0) {
+  const endTime = Date.now();
+  const endMemory = process.memoryUsage().heapUsed / 1024 / 1024; // MB
+  const executionTime = endTime - startTime;
+  const memoryUsed = endMemory - startMemory;
+  
+  // Update global performance tracking
+  globalPerformance.totalInvocations++;
+  globalPerformance.totalExecutionTime += executionTime;
+  globalPerformance.totalMemoryUsed += memoryUsed;
+  globalPerformance.totalOutboundSize += responseSize;
+  
+  // Update function-specific stats
+  const functionStats = globalPerformance.functionStats[functionName];
+  functionStats.invocations++;
+  functionStats.totalTime += executionTime;
+  functionStats.totalMemory += memoryUsed;
+  functionStats.totalOutbound += responseSize;
+  
+  // Calculate averages
+  functionStats.avgTime = functionStats.totalTime / functionStats.invocations;
+  functionStats.avgMemory = functionStats.totalMemory / functionStats.invocations;
+  functionStats.avgOutbound = functionStats.totalOutbound / functionStats.invocations;
+  
+  console.log(`=== Performance Metrics for ${functionName} ===`);
+  console.log(`Total Invocations: ${invocationCount[functionName]}`);
+  console.log(`Execution Time: ${executionTime}ms`);
+  console.log(`Memory Used: ~${memoryUsed.toFixed(2)} MB`);
+  console.log(`Peak Memory: ~${endMemory.toFixed(2)} MB`);
+  console.log(`Outbound Networking Size: ${responseSize} bytes`);
+  console.log(`==============================================`);
+  
+  // Log summary after each invocation
+  logGlobalSummary();
+}
+
+/**
+ * Helper function to log global performance summary
+ */
+function logGlobalSummary() {
+  const uptime = Date.now() - globalPerformance.startTime;
+  const uptimeMinutes = (uptime / 1000 / 60).toFixed(2);
+  
+  console.log(`\n📊 GLOBAL PERFORMANCE SUMMARY`);
+  console.log(`==============================================`);
+  console.log(`⏱️  Uptime: ${uptimeMinutes} minutes`);
+  console.log(`🔄 Total Invocations: ${globalPerformance.totalInvocations}`);
+  console.log(`⚡ Total Execution Time: ${globalPerformance.totalExecutionTime}ms`);
+  console.log(`💾 Total Memory Used: ~${globalPerformance.totalMemoryUsed.toFixed(2)} MB`);
+  console.log(`📤 Total Outbound Data: ${globalPerformance.totalOutboundSize} bytes`);
+  
+  if (globalPerformance.totalInvocations > 0) {
+    console.log(`\n📈 AVERAGES:`);
+    console.log(`⚡ Avg Execution Time: ${(globalPerformance.totalExecutionTime / globalPerformance.totalInvocations).toFixed(2)}ms`);
+    console.log(`💾 Avg Memory Used: ~${(globalPerformance.totalMemoryUsed / globalPerformance.totalInvocations).toFixed(2)} MB`);
+    console.log(`📤 Avg Outbound Data: ${(globalPerformance.totalOutboundSize / globalPerformance.totalInvocations).toFixed(0)} bytes`);
+  }
+  
+  console.log(`\n🔧 FUNCTION BREAKDOWN:`);
+  
+  // getLineAuthUrlHttp stats
+  const authUrlStats = globalPerformance.functionStats.getLineAuthUrlHttp;
+  if (authUrlStats.invocations > 0) {
+    console.log(`\n  📋 getLineAuthUrlHttp:`);
+    console.log(`    🔄 Invocations: ${authUrlStats.invocations}`);
+    console.log(`    ⚡ Avg Time: ${authUrlStats.avgTime.toFixed(2)}ms`);
+    console.log(`    💾 Avg Memory: ~${authUrlStats.avgMemory.toFixed(2)} MB`);
+    console.log(`    📤 Avg Outbound: ${authUrlStats.avgOutbound.toFixed(0)} bytes`);
+  }
+  
+  // processLineCallbackHttp stats
+  const callbackStats = globalPerformance.functionStats.processLineCallbackHttp;
+  if (callbackStats.invocations > 0) {
+    console.log(`\n  📋 processLineCallbackHttp:`);
+    console.log(`    🔄 Invocations: ${callbackStats.invocations}`);
+    console.log(`    ⚡ Avg Time: ${callbackStats.avgTime.toFixed(2)}ms`);
+    console.log(`    💾 Avg Memory: ~${callbackStats.avgMemory.toFixed(2)} MB`);
+    console.log(`    📤 Avg Outbound: ${callbackStats.avgOutbound.toFixed(0)} bytes`);
+  }
+  
+  console.log(`\n💰 ESTIMATED COSTS (per 1000 invocations):`);
+  const avgExecutionTime = globalPerformance.totalInvocations > 0 ? 
+    globalPerformance.totalExecutionTime / globalPerformance.totalInvocations : 0;
+  const avgMemory = globalPerformance.totalInvocations > 0 ? 
+    globalPerformance.totalMemoryUsed / globalPerformance.totalInvocations : 0;
+  
+  const cpuSeconds = (avgExecutionTime / 1000) * 1000; // Convert ms to seconds for 1000 invocations
+  const gbSeconds = (avgMemory / 1024) * (avgExecutionTime / 1000) * 1000; // Convert MB to GB and ms to seconds
+  const outboundMB = (globalPerformance.totalOutboundSize / globalPerformance.totalInvocations) * 1000 / 1024 / 1024; // Convert bytes to MB
+  
+  console.log(`    ⚡ CPU-seconds: ${cpuSeconds.toFixed(2)}`);
+  console.log(`    💾 GB-seconds: ${gbSeconds.toFixed(4)}`);
+  console.log(`    📤 Outbound: ${outboundMB.toFixed(2)} MB`);
+  
+  console.log(`==============================================\n`);
+}
+
+/**
+ * Helper function to reset performance metrics
+ */
+function resetPerformanceMetrics() {
+  globalPerformance = {
+    totalInvocations: 0,
+    totalExecutionTime: 0,
+    totalMemoryUsed: 0,
+    totalOutboundSize: 0,
+    startTime: Date.now(),
+    functionStats: {
+      getLineAuthUrlHttp: {
+        invocations: 0,
+        totalTime: 0,
+        totalMemory: 0,
+        totalOutbound: 0,
+        avgTime: 0,
+        avgMemory: 0,
+        avgOutbound: 0
+      },
+      processLineCallbackHttp: {
+        invocations: 0,
+        totalTime: 0,
+        totalMemory: 0,
+        totalOutbound: 0,
+        avgTime: 0,
+        avgMemory: 0,
+        avgOutbound: 0
+      }
+    }
+  };
+  
+  invocationCount = {
+    getLineAuthUrlHttp: 0,
+    processLineCallbackHttp: 0,
+  };
+  
+  console.log('🔄 Performance metrics have been reset!');
+}
+
+/**
+ * Helper function to get current performance stats
+ * @return {Object} Current performance statistics
+ */
+function getPerformanceStats() {
+  return {
+    global: globalPerformance,
+    invocationCount: invocationCount,
+    uptime: Date.now() - globalPerformance.startTime
+  };
+}
 
 /**
  * Helper function to generate LINE authorization URL
@@ -180,6 +371,13 @@ function handleCORS(request, response) {
 
 // HTTP function for LINE Authorization URL
 exports.getLineAuthUrlHttp = onRequest(async (request, response) => {
+  // Performance tracking start
+  const startTime = Date.now();
+  const startMemory = process.memoryUsage().heapUsed / 1024 / 1024; // MB
+  invocationCount.getLineAuthUrlHttp++;
+  
+  console.log(`=== Starting getLineAuthUrlHttp (Invocation #${invocationCount.getLineAuthUrlHttp}) ===`);
+  
   // Handle CORS
   if (!handleCORS(request, response)) {
     return; // Preflight request handled
@@ -188,22 +386,47 @@ exports.getLineAuthUrlHttp = onRequest(async (request, response) => {
   try {
     const {authUrl, state} = generateLineAuthUrl();
 
-    response.json({
+    const responseData = {
       success: true,
       authUrl: authUrl,
       state: state,
-    });
+    };
+    
+    // Calculate response size
+    const responseString = JSON.stringify(responseData);
+    const responseSize = Buffer.from(responseString).length;
+    
+    // Log performance metrics
+    logPerformanceMetrics('getLineAuthUrlHttp', startTime, startMemory, responseSize);
+    
+    response.json(responseData);
   } catch (error) {
     console.error("Error generating LINE auth URL:", error);
-    response.status(500).json({
+    
+    const errorResponse = {
       success: false,
       error: `Failed to generate LINE authorization URL: ${error.message}`,
-    });
+    };
+    
+    const responseString = JSON.stringify(errorResponse);
+    const responseSize = Buffer.from(responseString).length;
+    
+    // Log performance metrics even for errors
+    logPerformanceMetrics('getLineAuthUrlHttp', startTime, startMemory, responseSize);
+    
+    response.status(500).json(errorResponse);
   }
 });
 
 // HTTP function for LINE Callback processing
 exports.processLineCallbackHttp = onRequest(async (request, response) => {
+  // Performance tracking start
+  const startTime = Date.now();
+  const startMemory = process.memoryUsage().heapUsed / 1024 / 1024; // MB
+  invocationCount.processLineCallbackHttp++;
+  
+  console.log(`=== Starting processLineCallbackHttp (Invocation #${invocationCount.processLineCallbackHttp}) ===`);
+  
   // Handle CORS
   if (!handleCORS(request, response)) {
     return; // Preflight request handled
@@ -217,10 +440,18 @@ exports.processLineCallbackHttp = onRequest(async (request, response) => {
 
     if (!code || !state) {
       console.error("Missing code or state:", {code: !!code, state: !!state});
-      response.status(400).json({
+      
+      const errorResponse = {
         success: false,
         error: "Authorization code and state are required",
-      });
+      };
+      
+      const responseString = JSON.stringify(errorResponse);
+      const responseSize = Buffer.from(responseString).length;
+      
+      logPerformanceMetrics('processLineCallbackHttp', startTime, startMemory, responseSize);
+      
+      response.status(400).json(errorResponse);
       return;
     }
 
@@ -246,10 +477,17 @@ exports.processLineCallbackHttp = onRequest(async (request, response) => {
     const linePictureUrl = lineProfile.pictureUrl;
 
     if (!lineEmail) {
-      response.status(400).json({
+      const errorResponse = {
         success: false,
         error: "Email permission not granted in LINE",
-      });
+      };
+      
+      const responseString = JSON.stringify(errorResponse);
+      const responseSize = Buffer.from(responseString).length;
+      
+      logPerformanceMetrics('processLineCallbackHttp', startTime, startMemory, responseSize);
+      
+      response.status(400).json(errorResponse);
       return;
     }
 
@@ -261,7 +499,7 @@ exports.processLineCallbackHttp = onRequest(async (request, response) => {
     console.log(`Generated custom token for UID: ${firebaseUid}`);
 
     // 6. Return data
-    response.json({
+    const responseData = {
       success: true,
       customToken: customToken,
       user: {
@@ -279,7 +517,16 @@ exports.processLineCallbackHttp = onRequest(async (request, response) => {
         accessToken: accessToken,
       },
       idTokenData: idTokenData,
-    });
+    };
+    
+    // Calculate response size
+    const responseString = JSON.stringify(responseData);
+    const responseSize = Buffer.from(responseString).length;
+    
+    // Log performance metrics
+    logPerformanceMetrics('processLineCallbackHttp', startTime, startMemory, responseSize);
+    
+    response.json(responseData);
   } catch (error) {
     console.error("Error processing LINE callback:", error);
     console.error("Error details:", {
@@ -288,10 +535,77 @@ exports.processLineCallbackHttp = onRequest(async (request, response) => {
       code: error.code,
       response: error.response && error.response.data,
     });
-    response.status(500).json({
+    
+    const errorResponse = {
       success: false,
       error: `LINE login failed: ${error.message}`,
       details: (error.response && error.response.data) || error.stack,
-    });
+    };
+    
+    const responseString = JSON.stringify(errorResponse);
+    const responseSize = Buffer.from(responseString).length;
+    
+    // Log performance metrics even for errors
+    logPerformanceMetrics('processLineCallbackHttp', startTime, startMemory, responseSize);
+    
+    response.status(500).json(errorResponse);
+  }
+});
+
+// HTTP function for getting performance statistics
+exports.getPerformanceStatsHttp = onRequest(async (request, response) => {
+  // Handle CORS
+  if (!handleCORS(request, response)) {
+    return; // Preflight request handled
+  }
+
+  try {
+    const stats = getPerformanceStats();
+    
+    const responseData = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      stats: stats
+    };
+    
+    response.json(responseData);
+  } catch (error) {
+    console.error("Error getting performance stats:", error);
+    
+    const errorResponse = {
+      success: false,
+      error: `Failed to get performance stats: ${error.message}`,
+    };
+    
+    response.status(500).json(errorResponse);
+  }
+});
+
+// HTTP function for resetting performance metrics
+exports.resetPerformanceMetricsHttp = onRequest(async (request, response) => {
+  // Handle CORS
+  if (!handleCORS(request, response)) {
+    return; // Preflight request handled
+  }
+
+  try {
+    resetPerformanceMetrics();
+    
+    const responseData = {
+      success: true,
+      message: "Performance metrics have been reset successfully",
+      timestamp: new Date().toISOString()
+    };
+    
+    response.json(responseData);
+  } catch (error) {
+    console.error("Error resetting performance metrics:", error);
+    
+    const errorResponse = {
+      success: false,
+      error: `Failed to reset performance metrics: ${error.message}`,
+    };
+    
+    response.status(500).json(errorResponse);
   }
 });

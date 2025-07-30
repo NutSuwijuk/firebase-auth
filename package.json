@@ -8,7 +8,11 @@
     "dev": "nodemon server.js",
     "tunnel": "concurrently \"npm start\" \"ngrok http 3000\"",
     "tunnel-only": "ngrok http 3000",
-    "setup-ngrok": "node setup-ngrok.js"
+    "setup-ngrok": "node setup-ngrok.js",
+    "emulators": "firebase emulators:start",
+    "emulators:functions": "firebase emulators:start --only functions",
+    "test:functions": "node test-functions.js",
+    "deploy:functions": "firebase deploy --only functions"
   },
   "dependencies": {
     "axios": "^1.6.0",
