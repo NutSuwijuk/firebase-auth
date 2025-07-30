@@ -8,7 +8,7 @@ const {v4: uuidv4} = require("uuid");
 
 // Initialize Firebase Admin SDK for emulator
 admin.initializeApp({
-  projectId: "daring-calling-827",
+  projectId: "basic-firebase-80425",
 });
 
 // Set global options for all functions
