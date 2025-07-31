@@ -3,15 +3,15 @@
 ## ✅ Pre-Deployment Checks
 
 ### 1. **Project Configuration**
-- [ ] Project ID updated in `.firebaserc` → `basic-firebase-80425`
-- [ ] Project ID updated in `functions/index.js` → `basic-firebase-80425`
-- [ ] Firebase project exists and is accessible
+- [ v ] Project ID updated in `.firebaserc` → `basic-firebase-80425`
+- [ v ] Project ID updated in `functions/index.js` → `basic-firebase-80425`
+- [ v ] Firebase project exists and is accessible
 
 ### 2. **LINE OAuth Configuration**
-- [ ] LINE Channel ID updated in `functions/index.js`
-- [ ] LINE Channel Secret updated in `functions/index.js`
-- [ ] Redirect URI configured correctly
-- [ ] LINE Login enabled in Firebase Console
+- [ v ] LINE Channel ID updated in `functions/index.js`
+- [ v ] LINE Channel Secret updated in `functions/index.js`
+- [ v ] Redirect URI configured correctly
+- [ v ] LINE Login enabled in Firebase Console
 
 ### 3. **Code Quality**
 - [ ] ESLint passes without errors

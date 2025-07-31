@@ -6,10 +6,9 @@ const admin = require("firebase-admin");
 const axios = require("axios");
 const {v4: uuidv4} = require("uuid");
 
-// Initialize Firebase Admin SDK for emulator
-admin.initializeApp({
-  projectId: "basic-firebase-80425",
-});
+// Initialize Firebase Admin SDK with default credentials
+// This will use the service account automatically assigned to the Cloud Function
+admin.initializeApp();
 
 // Set global options for all functions
 setGlobalOptions({
@@ -114,7 +113,7 @@ async function getLineProfile(accessToken) {
  * @return {Promise<string>} Firebase user UID
  */
 async function createOrUpdateFirebaseUser(lineEmail, lineDisplayName,
-    linePictureUrl) {
+  linePictureUrl) {
   let firebaseUid;
 
   try {
@@ -155,12 +154,19 @@ async function createOrUpdateFirebaseUser(lineEmail, lineDisplayName,
 function handleCORS(request, response) {
   const origin = request.headers.origin;
 
-  // Always allow localhost for development (including port 5502)
-  if (origin && (origin.includes("localhost") ||
-      origin.includes("127.0.0.1"))) {
+  // Allow both development and production origins
+  const allowedOrigins = [
+    "http://127.0.0.1:5502",
+    "http://localhost:5502",
+    "https://basic-firebase-80425.web.app",
+    "https://basic-firebase-80425.firebaseapp.com",
+  ];
+
+  if (origin && allowedOrigins.includes(origin)) {
     response.set("Access-Control-Allow-Origin", origin);
   } else {
-    response.set("Access-Control-Allow-Origin", "http://127.0.0.1:5502");
+    // Default to production URL
+    response.set("Access-Control-Allow-Origin", "https://basic-firebase-80425.web.app");
   }
 
   response.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -225,7 +231,7 @@ exports.processLineCallbackHttp = onRequest(async (request, response) => {
     }
 
     console.log("Processing LINE callback with code:",
-        code.substring(0, 10) + "...");
+      code.substring(0, 10) + "...");
 
     // 1. Exchange authorization code for tokens
     const {access_token: accessToken, id_token: idToken} =
@@ -254,16 +260,12 @@ exports.processLineCallbackHttp = onRequest(async (request, response) => {
     }
 
     const firebaseUid = await createOrUpdateFirebaseUser(lineEmail,
-        lineDisplayName, linePictureUrl);
+      lineDisplayName, linePictureUrl);
 
-    // 5. Create custom token
-    const customToken = await admin.auth().createCustomToken(firebaseUid);
-    console.log(`Generated custom token for UID: ${firebaseUid}`);
-
-    // 6. Return data
+        // 5. Return data without custom token (use LINE ID token instead)
     response.json({
       success: true,
-      customToken: customToken,
+      lineIdToken: idToken, // Use LINE ID token instead of custom token
       user: {
         uid: firebaseUid,
         email: lineEmail,

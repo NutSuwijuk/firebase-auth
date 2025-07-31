@@ -5,13 +5,14 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCFZee6iS2G3DR4TYxwZRFiepOZHPP3ggQ",
-    authDomain: "daring-calling-827.firebaseapp.com",
-    databaseURL: "https://daring-calling-827.firebaseio.com",
-    projectId: "daring-calling-827",
-    storageBucket: "daring-calling-827.firebasestorage.app",
-    messagingSenderId: "525752158341",
-    appId: "1:525752158341:web:12cd034e9bbe3d9d0cc1ec"
+  apiKey: "AIzaSyAVC7BPUvSgCpIuzukjSTI3lz6QZPXVJjY",
+  authDomain: "basic-firebase-80425.firebaseapp.com",
+  projectId: "basic-firebase-80425",
+  storageBucket: "basic-firebase-80425.firebasestorage.app",
+  messagingSenderId: "1086606095513",
+  appId: "1:1086606095513:web:eba4a7a645e9c8f33bb408",
+  measurementId: "G-50E1JB6K7T",
+  appId: "1:525752158341:web:12cd034e9bbe3d9d0cc1ec"
 };
 
 // Initialize Firebase
@@ -58,8 +59,6 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-
-
 // Get DOM elements
 const loginForm = document.getElementById('emailLoginForm');
 const emailInput = document.getElementById('emailInput');
@@ -78,10 +77,6 @@ const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
-
-
-
-
 
 // Initialize LINE provider
 const lineProvider = new OAuthProvider('oidc.line'); // 'oidc.line' คือ providerId ที่ตั้งใน Firebase Console

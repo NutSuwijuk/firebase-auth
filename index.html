@@ -55,40 +55,7 @@
             margin: 20px 0;
         }
 
-        .status {
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            display: none;
-        }
 
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status.warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .status.show {
-            display: block;
-        }
 
         .auth-section {
             margin-bottom: 30px;
@@ -310,21 +277,7 @@
             background: #545b62;
         }
 
-        /* Loading Spinner */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
 
         /* Provider Icons */
         .provider-icon {
@@ -365,46 +318,9 @@
                 <li><strong>LINE Login:</strong> เปิดใช้งานใน Firebase Console</li>
                 <li><strong>Apple Sign In:</strong> เปิดใช้งานใน Firebase Console</li>
             </ol>
-            <div style="margin-top: 15px; padding: 10px; background-color: #e3f2fd; border-radius: 5px; border-left: 4px solid #2196f3;">
-                <strong>🔧 Having issues with LINE login?</strong>
-                <a href="test-line-login.html" target="_blank" style="color: #1976d2; text-decoration: none; font-weight: 600;">Click here to run diagnostics and troubleshoot</a>
-                <br>
-                <a href="LINE_LOGIN_TROUBLESHOOTING.md" target="_blank" style="color: #1976d2; text-decoration: none; font-weight: 600;">📖 View detailed troubleshooting guide</a>
-            </div>
-            <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
-                <strong>🔧 Having issues with Google login?</strong>
-                <a href="test-firebase.html" target="_blank" style="color: #856404; text-decoration: none; font-weight: 600;">Click here to test Firebase configuration</a>
-                <br>
-                <a href="test-oauth.html" target="_blank" style="color: #856404; text-decoration: none; font-weight: 600;">🔑 Test OAuth Configuration</a>
-            </div>
-            <div style="margin-top: 15px; padding: 10px; background-color: #f8d7da; border-radius: 5px; border-left: 4px solid #dc3545;">
-                <strong>🔄 Moved Firebase Project?</strong>
-                <a href="update-firebase-config.html" target="_blank" style="color: #721c24; text-decoration: none; font-weight: 600;">Click here to update Firebase configuration</a>
-            </div>
-        </div>
-
-        <!-- Status Messages -->
-        <div id="backendStatus" class="status warning show">
-            🔍 Checking Firebase Functions status...
-        </div>
-
-        <div id="firebaseStatus" class="status warning show">
-            🔍 Checking Firebase connection...
-        </div>
-
-        <div id="lineStatus" class="status warning" style="display: none;">
-            🔍 LINE login status...
         </div>
         
-        <div id="lineLoginInstructions" class="info" style="display: none;">
-            <h4>📋 LINE Login Instructions:</h4>
-            <ul>
-                <li>✅ <strong>Complete authorization on LINE page</strong> - Follow the steps on the LINE authorization page</li>
-                <li>✅ <strong>Don't close the browser</strong> - Let the process complete naturally</li>
-                <li>✅ <strong>Wait for redirect back</strong> - You'll be automatically redirected back here</li>
-                <li>✅ <strong>Allow permissions</strong> - Grant LINE the requested permissions</li>
-            </ul>
-        </div>
+
 
         <!-- User Information -->
         <div id="userInfo" class="user-info">
@@ -465,37 +381,115 @@
             </form>
         </div>
 
-        <div id="statusMessage" class="status" style="display: none;"></div>
-        <div id="successMessage" class="status success" style="display: none;"></div>
-        <div id="errorMessage" class="status error" style="display: none;"></div>
+
     </div>
 
     <!-- LINE Login JavaScript -->
     <script type="module">
         // Import Firebase modules
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signInWithCustomToken, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { 
+            getAuth, 
+            signInWithCustomToken, 
+            connectAuthEmulator,
+            GoogleAuthProvider,
+            signInWithPopup,
+            signInWithRedirect,
+            getRedirectResult,
+            OAuthProvider
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-        // Firebase configuration for emulator
+        // Firebase configuration for production
         const firebaseConfig = {
             apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-            authDomain: "daring-calling-827.firebaseapp.com",
-            projectId: "daring-calling-827",
-            storageBucket: "daring-calling-827.appspot.com",
+            authDomain: "basic-firebase-80425.firebaseapp.com",
+            projectId: "basic-firebase-80425",
+            storageBucket: "basic-firebase-80425.appspot.com",
             messagingSenderId: "123456789012",
             appId: "1:123456789012:web:abcdefghijklmnop"
         };
 
+        // TODO: Replace with your actual Firebase config
+        // You can get this from Firebase Console > Project Settings > General > Your apps
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         
-        // Connect to emulator
-        if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
-            connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+        // Use production Firebase (no emulator)
+        // connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+
+        // Initialize providers
+        const googleProvider = new GoogleAuthProvider();
+        const appleProvider = new OAuthProvider('apple.com');
+
+        // LINE Login Functions - Production Cloud Functions
+        const FUNCTIONS_BASE_URL = 'https://asia-southeast1-basic-firebase-80425.cloudfunctions.net';
+
+        // Handle Google login button click
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        if (googleLoginBtn) {
+            googleLoginBtn.addEventListener('click', async () => {
+                try {
+                    console.log('🔑 Starting Google login process...');
+                    
+                    // Add scopes if needed
+                    googleProvider.addScope('email');
+                    googleProvider.addScope('profile');
+                    
+                    // Sign in with popup
+                    const result = await signInWithPopup(auth, googleProvider);
+                    console.log('✅ Google login successful:', result.user);
+                    
+                    // The auth state listener will handle the UI update
+                    
+                } catch (error) {
+                    console.error('❌ Google login error:', error);
+                    
+                    // Handle specific error cases
+                    if (error.code === 'auth/popup-closed-by-user') {
+                        alert('Google login was cancelled by user');
+                    } else if (error.code === 'auth/popup-blocked') {
+                        alert('Google login popup was blocked. Please allow popups for this site.');
+                    } else {
+                        alert(`Google login failed: ${error.message}`);
+                    }
+                }
+            });
         }
 
-        // LINE Login Functions
-        const FUNCTIONS_BASE_URL = 'http://127.0.0.1:5001/daring-calling-827/asia-southeast1';
+        // Handle Apple login button click
+        const appleLoginBtn = document.getElementById('appleLoginBtn');
+        if (appleLoginBtn) {
+            appleLoginBtn.addEventListener('click', async () => {
+                try {
+                    console.log('🍎 Starting Apple login process...');
+                    
+                    // Configure Apple provider
+                    appleProvider.addScope('email');
+                    appleProvider.addScope('name');
+                    
+                    // Sign in with popup
+                    const result = await signInWithPopup(auth, appleProvider);
+                    console.log('✅ Apple login successful:', result.user);
+                    
+                    // The auth state listener will handle the UI update
+                    
+                } catch (error) {
+                    console.error('❌ Apple login error:', error);
+                    
+                    // Handle specific error cases
+                    if (error.code === 'auth/popup-closed-by-user') {
+                        alert('Apple login was cancelled by user');
+                    } else if (error.code === 'auth/popup-blocked') {
+                        alert('Apple login popup was blocked. Please allow popups for this site.');
+                    } else if (error.code === 'auth/operation-not-allowed') {
+                        alert('Apple Sign-In is not enabled in Firebase Console. Please enable it in Authentication > Sign-in method.');
+                    } else {
+                        alert(`Apple login failed: ${error.message}`);
+                    }
+                }
+            });
+        }
 
         // Handle LINE login button click
         const lineLoginBtn = document.getElementById('lineLoginBtn');
@@ -503,14 +497,6 @@
             lineLoginBtn.addEventListener('click', async () => {
                 try {
                     console.log('🟩 Starting LINE login process...');
-                    
-                    // Show status
-                    const statusDiv = document.getElementById('statusMessage');
-                    if (statusDiv) {
-                        statusDiv.style.display = 'block';
-                        statusDiv.textContent = '🔄 Getting LINE authorization URL...';
-                        statusDiv.className = 'status warning';
-                    }
                     
                     // Get authorization URL from Cloud Functions
                     const response = await fetch(`${FUNCTIONS_BASE_URL}/getLineAuthUrlHttp`);
@@ -522,10 +508,6 @@
 
                     console.log('✅ Got LINE authorization URL:', authData.authUrl);
                     
-                    if (statusDiv) {
-                        statusDiv.textContent = '🔄 Redirecting to LINE authorization...';
-                    }
-                    
                     // Store state for verification
                     localStorage.setItem('lineAuthState', authData.state);
                     localStorage.setItem('lineAuthTimestamp', Date.now().toString());
@@ -535,12 +517,7 @@
 
                 } catch (error) {
                     console.error('❌ LINE login error:', error);
-                    
-                    const statusDiv = document.getElementById('statusMessage');
-                    if (statusDiv) {
-                        statusDiv.textContent = `❌ LINE login failed: ${error.message}`;
-                        statusDiv.className = 'status error';
-                    }
+                    alert(`LINE login failed: ${error.message}`);
                 }
             });
         }
@@ -554,13 +531,6 @@
         if (lineCode && lineState) {
             // Process LINE callback
             console.log('LINE callback detected, processing...');
-            
-            const statusDiv = document.getElementById('statusMessage');
-            if (statusDiv) {
-                statusDiv.style.display = 'block';
-                statusDiv.innerHTML = '<span class="loading"></span>กำลังประมวลผลการเข้าสู่ระบบ LINE...';
-                statusDiv.className = 'status warning';
-            }
 
             async function processLineCallback() {
                 try {
@@ -578,19 +548,11 @@
                     const data = await response.json();
 
                     if (data.success) {
-                        // Sign in to Firebase with custom token
-                        const userCredential = await signInWithCustomToken(auth, data.customToken);
-                        const user = userCredential.user;
-
-                        // Show success
-                        if (statusDiv) {
-                            statusDiv.className = 'status success';
-                            statusDiv.innerHTML = '✅ เข้าสู่ระบบ LINE สำเร็จ!';
-                        }
-
-                        // Store LINE profile data
+                        // Store LINE data in localStorage (no Firebase Auth needed)
                         localStorage.setItem('lineProfile', JSON.stringify(data.lineProfile));
                         localStorage.setItem('lineIdTokenData', JSON.stringify(data.idTokenData));
+                        localStorage.setItem('lineUser', JSON.stringify(data.user));
+                        localStorage.setItem('lineIdToken', data.lineIdToken);
 
                         // Clear URL parameters
                         window.history.replaceState({}, document.title, window.location.pathname);
@@ -606,10 +568,7 @@
 
                 } catch (error) {
                     console.error('Error processing LINE callback:', error);
-                    if (statusDiv) {
-                        statusDiv.className = 'status error';
-                        statusDiv.innerHTML = `❌ เกิดข้อผิดพลาด: ${error.message}`;
-                    }
+                    alert(`LINE login failed: ${error.message}`);
                 }
             }
 
@@ -619,54 +578,128 @@
 
         // Check for LINE errors
         if (lineError) {
-            const statusDiv = document.getElementById('statusMessage');
-            if (statusDiv) {
-                statusDiv.style.display = 'block';
-                statusDiv.innerHTML = `❌ เกิดข้อผิดพลาดจาก LINE: ${lineError}`;
-                statusDiv.className = 'status error';
-            }
+            alert(`LINE login error: ${lineError}`);
             
             // Clear URL parameters
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        // Auth state listener
-        auth.onAuthStateChanged((user) => {
-            console.log('Firebase Auth State Changed:', user ? 'User logged in' : 'No user');
-            
+        // Handle email login form
+        const emailLoginForm = document.getElementById('emailLoginForm');
+        if (emailLoginForm) {
+            emailLoginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const email = document.getElementById('emailInput').value;
+                const password = document.getElementById('passwordInput').value;
+                
+                try {
+                    console.log('📧 Starting email login process...');
+                    
+                    // For email login, you would typically use signInWithEmailAndPassword
+                    // But since this is a demo, we'll show a message
+                    alert('Email login is not implemented in this demo. Please use Google, Apple, or LINE login.');
+                    
+                } catch (error) {
+                    console.error('❌ Email login error:', error);
+                    alert(`Email login failed: ${error.message}`);
+                }
+            });
+        }
+
+        // Handle redirect results for Google and Apple login
+        getRedirectResult(auth).then((result) => {
+            if (result) {
+                console.log('✅ Redirect login successful:', result.user);
+                // The auth state listener will handle the UI update
+            }
+        }).catch((error) => {
+            console.error('❌ Redirect login error:', error);
+            if (error.code === 'auth/operation-not-allowed') {
+                alert('This sign-in method is not enabled in Firebase Console.');
+            }
+        });
+
+        // Check for logged in user (Firebase Auth or LINE)
+        function checkUserStatus() {
             const userInfo = document.getElementById('userInfo');
             const userDetails = document.getElementById('userDetails');
             const logoutBtn = document.getElementById('logoutBtn');
             
-            if (user) {
-                // User is signed in
+            // Check Firebase Auth first
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                // Firebase user is signed in
                 if (userInfo) userInfo.style.display = 'block';
                 if (userDetails) {
                     userDetails.innerHTML = `
-                        <h3>👤 User Information</h3>
-                        <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
-                        <p><strong>Display Name:</strong> ${user.displayName || 'N/A'}</p>
-                        <p><strong>UID:</strong> ${user.uid}</p>
-                        <p><strong>Provider:</strong> ${user.providerData[0]?.providerId || 'Custom Token'}</p>
+                        <h3>👤 User Information (Firebase)</h3>
+                        <p><strong>Email:</strong> ${currentUser.email || 'N/A'}</p>
+                        <p><strong>Display Name:</strong> ${currentUser.displayName || 'N/A'}</p>
+                        <p><strong>UID:</strong> ${currentUser.uid}</p>
+                        <p><strong>Provider:</strong> ${currentUser.providerData[0]?.providerId || 'Custom Token'}</p>
                     `;
                 }
                 if (logoutBtn) logoutBtn.style.display = 'block';
-            } else {
-                // User is signed out
-                if (userInfo) userInfo.style.display = 'none';
-                if (logoutBtn) logoutBtn.style.display = 'none';
+                return;
             }
+            
+            // Check LINE login
+            const lineUser = localStorage.getItem('lineUser');
+            const lineProfile = localStorage.getItem('lineProfile');
+            
+            if (lineUser && lineProfile) {
+                const user = JSON.parse(lineUser);
+                const profile = JSON.parse(lineProfile);
+                
+                if (userInfo) userInfo.style.display = 'block';
+                if (userDetails) {
+                    userDetails.innerHTML = `
+                        <h3>👤 User Information (LINE)</h3>
+                        <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
+                        <p><strong>Display Name:</strong> ${user.displayName || profile.displayName || 'N/A'}</p>
+                        <p><strong>UID:</strong> ${user.uid}</p>
+                        <p><strong>Provider:</strong> LINE</p>
+                        <p><strong>LINE User ID:</strong> ${profile.userId}</p>
+                        ${profile.pictureUrl ? `<img src="${profile.pictureUrl}" alt="Profile" class="profile-pic">` : ''}
+                    `;
+                }
+                if (logoutBtn) logoutBtn.style.display = 'block';
+                return;
+            }
+            
+            // No user logged in
+            if (userInfo) userInfo.style.display = 'none';
+            if (logoutBtn) logoutBtn.style.display = 'none';
+        }
+
+        // Auth state listener for Firebase
+        auth.onAuthStateChanged((user) => {
+            console.log('Firebase Auth State Changed:', user ? 'User logged in' : 'No user');
+            checkUserStatus();
         });
+
+        // Check user status on page load
+        checkUserStatus();
 
         // Handle logout
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
                 try {
+                    // Sign out from Firebase Auth
                     await auth.signOut();
+                    
+                    // Clear LINE data
                     localStorage.removeItem('lineProfile');
                     localStorage.removeItem('lineIdTokenData');
+                    localStorage.removeItem('lineUser');
+                    localStorage.removeItem('lineIdToken');
+                    
                     console.log('✅ User signed out successfully');
+                    
+                    // Refresh page to update UI
+                    window.location.reload();
                 } catch (error) {
                     console.error('❌ Logout error:', error);
                 }
