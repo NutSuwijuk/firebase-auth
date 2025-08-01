@@ -324,6 +324,20 @@
           <li><strong>LINE Login:</strong> เปิดใช้งานใน Firebase Console</li>
           <li><strong>Apple Sign In:</strong> เปิดใช้งานใน Firebase Console</li>
         </ol>
+        
+        <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+          <h4>🍎 Apple Sign-In Setup Guide:</h4>
+          <ol>
+            <li><strong>Firebase Console:</strong> Authentication > Sign-in method > Apple > Enable</li>
+            <li><strong>Apple Developer Account:</strong> Create App ID and configure Sign-In capability</li>
+            <li><strong>Service ID:</strong> Create Service ID in Apple Developer Console</li>
+            <li><strong>Domain Verification:</strong> Add your domain to Apple Developer Console</li>
+            <li><strong>Private Key:</strong> Generate and upload private key to Firebase</li>
+            <li><strong>Team ID:</strong> Add your Apple Team ID to Firebase</li>
+            <li><strong>Bundle ID:</strong> Configure Bundle ID in Firebase</li>
+          </ol>
+          <button id="checkAppleSetupBtn" class="button secondary" style="margin-top: 10px;">🔍 Check Apple Setup Status</button>
+        </div>
       </div>
 
       <!-- User Information -->
@@ -356,7 +370,7 @@
         <div class="button-group">
           <button id="googleLoginBtn" class="button google">
             <img
-              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDExLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K"
+              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDEwLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K"
               alt="Google"
               class="provider-icon"
             />
@@ -439,6 +453,58 @@
       const googleProvider = new GoogleAuthProvider();
       const appleProvider = new OAuthProvider("apple.com");
 
+      // Apple Sign-In Setup Checker
+      async function checkAppleSetup() {
+        try {
+          console.log("🔍 Checking Apple Sign-In setup...");
+          
+          // Test if Apple provider is properly configured
+          const testResult = {
+            firebaseConfig: !!firebaseConfig,
+            appleProvider: !!appleProvider,
+            auth: !!auth,
+            currentDomain: window.location.hostname,
+            userAgent: navigator.userAgent
+          };
+          
+          console.log("Apple setup check result:", testResult);
+          
+          // Check if we're on a supported domain
+          const supportedDomains = ['localhost', '127.0.0.1', 'traveltech-f0674.web.app', 'traveltech-f0674.firebaseapp.com'];
+          const isSupportedDomain = supportedDomains.includes(window.location.hostname);
+          
+          let statusMessage = "🍎 Apple Sign-In Setup Status:\n\n";
+          statusMessage += `✅ Firebase Config: ${testResult.firebaseConfig ? 'OK' : 'Missing'}\n`;
+          statusMessage += `✅ Apple Provider: ${testResult.appleProvider ? 'OK' : 'Missing'}\n`;
+          statusMessage += `✅ Auth Instance: ${testResult.auth ? 'OK' : 'Missing'}\n`;
+          statusMessage += `🌐 Current Domain: ${testResult.currentDomain}\n`;
+          statusMessage += `🔗 Supported Domain: ${isSupportedDomain ? 'Yes' : 'No'}\n\n`;
+          
+          if (!isSupportedDomain) {
+            statusMessage += "⚠️ WARNING: Current domain may not be authorized.\n";
+            statusMessage += "Add this domain to Firebase Console > Authentication > Settings > Authorized domains\n\n";
+          }
+          
+          statusMessage += "📋 Next Steps:\n";
+          statusMessage += "1. Enable Apple Sign-In in Firebase Console\n";
+          statusMessage += "2. Configure Apple Developer Account\n";
+          statusMessage += "3. Add domain to authorized domains\n";
+          statusMessage += "4. Test with a real Apple ID\n";
+          
+          alert(statusMessage);
+          
+        } catch (error) {
+          console.error("Error checking Apple setup:", error);
+          alert(`Error checking Apple setup: ${error.message}`);
+        }
+      }
+
+      // Add event listener for Apple setup checker
+      const checkAppleSetupBtn = document.getElementById("checkAppleSetupBtn");
+      if (checkAppleSetupBtn) {
+        checkAppleSetupBtn.addEventListener("click", checkAppleSetup);
+      }
+
       // LINE Login Functions - Production Cloud Functions
       const FUNCTIONS_BASE_URL =
         "https://asia-southeast1-traveltech-f0674.cloudfunctions.net";
@@ -483,19 +549,34 @@
           try {
             console.log("🍎 Starting Apple login process...");
 
-            // Configure Apple provider
+            // Configure Apple provider with proper settings
             appleProvider.addScope("email");
             appleProvider.addScope("name");
+            
+            // Set custom parameters for Apple Sign-In
+            appleProvider.setCustomParameters({
+              // Add any custom parameters if needed
+            });
+
+            console.log("Apple provider configured:", appleProvider);
 
             // Sign in with popup
             const result = await signInWithPopup(auth, appleProvider);
             console.log("✅ Apple login successful:", result.user);
+            console.log("Apple user details:", {
+              email: result.user.email,
+              displayName: result.user.displayName,
+              uid: result.user.uid,
+              providerData: result.user.providerData
+            });
 
             // The auth state listener will handle the UI update
           } catch (error) {
             console.error("❌ Apple login error:", error);
+            console.error("Error code:", error.code);
+            console.error("Error message:", error.message);
 
-            // Handle specific error cases
+            // Handle specific error cases with detailed messages
             if (error.code === "auth/popup-closed-by-user") {
               alert("Apple login was cancelled by user");
             } else if (error.code === "auth/popup-blocked") {
@@ -504,10 +585,27 @@
               );
             } else if (error.code === "auth/operation-not-allowed") {
               alert(
-                "Apple Sign-In is not enabled in Firebase Console. Please enable it in Authentication > Sign-in method."
+                "❌ Apple Sign-In is not enabled in Firebase Console.\n\n" +
+                "To fix this:\n" +
+                "1. Go to Firebase Console > Authentication > Sign-in method\n" +
+                "2. Enable 'Apple' provider\n" +
+                "3. Configure Apple Sign-In settings\n" +
+                "4. Add your domain to authorized domains"
+              );
+            } else if (error.code === "auth/unauthorized-domain") {
+              alert(
+                "❌ This domain is not authorized for Apple Sign-In.\n\n" +
+                "To fix this:\n" +
+                "1. Go to Firebase Console > Authentication > Settings > Authorized domains\n" +
+                "2. Add your current domain (localhost, 127.0.0.1, or your production domain)"
+              );
+            } else if (error.code === "auth/network-request-failed") {
+              alert(
+                "❌ Network error during Apple Sign-In.\n\n" +
+                "Please check your internet connection and try again."
               );
             } else {
-              alert(`Apple login failed: ${error.message}`);
+              alert(`❌ Apple login failed: ${error.message}\n\nError code: ${error.code}`);
             }
           }
         });

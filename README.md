@@ -1,151 +1,169 @@
-# Firebase Authentication with LINE Login - Cloud Functions Edition
+# Firebase Authentication with Apple Sign-In
 
-🔥 **Firebase Authentication** integrated with **LINE Login** using **Firebase Cloud Functions**
+This project demonstrates Firebase Authentication integration with multiple providers including Apple Sign-In, Google, and LINE.
 
-## 🚀 Quick Start
+## 🍎 Apple Sign-In Setup Guide
 
-### 1. Deploy Cloud Functions
-```bash
-npm run deploy-functions
+### Prerequisites
+- Apple Developer Account ($99/year)
+- Firebase project
+- Domain for your web app
+
+### Step 1: Apple Developer Console Setup
+
+1. **Create App ID**
+   - Go to [Apple Developer Console](https://developer.apple.com/account/)
+   - Navigate to Certificates, Identifiers & Profiles
+   - Click "Identifiers" → "+" → "App IDs"
+   - Select "App" and click "Continue"
+   - Fill in:
+     - Description: Your app name
+     - Bundle ID: `com.yourcompany.yourapp` (unique identifier)
+   - Enable "Sign In with Apple" capability
+   - Click "Continue" and "Register"
+
+2. **Create Service ID**
+   - Go to "Identifiers" → "+" → "Services IDs"
+   - Select "Services IDs" and click "Continue"
+   - Fill in:
+     - Description: Your service name
+     - Identifier: `com.yourcompany.yourapp.web` (for web)
+   - Enable "Sign In with Apple" capability
+   - Click "Continue" and "Register"
+
+3. **Configure Service ID**
+   - Click on your Service ID
+   - Under "Sign In with Apple", click "Configure"
+   - Add your domain (e.g., `yourdomain.com`)
+   - Add return URL: `https://yourdomain.com/__/auth/handler`
+   - Click "Save"
+
+4. **Create Private Key**
+   - Go to "Keys" → "+"
+   - Fill in:
+     - Key Name: `Firebase Apple Sign-In`
+     - Enable "Sign In with Apple"
+   - Click "Continue" and "Register"
+   - Download the `.p8` file (you can only download once!)
+   - Note your Team ID and Key ID
+
+### Step 2: Firebase Console Setup
+
+1. **Enable Apple Sign-In**
+   - Go to [Firebase Console](https://console.firebase.google.com/)
+   - Select your project
+   - Go to Authentication → Sign-in method
+   - Enable "Apple" provider
+
+2. **Configure Apple Provider**
+   - Click on "Apple" provider
+   - Fill in:
+     - **Service ID**: `com.yourcompany.yourapp.web` (from Step 1)
+     - **Apple Team ID**: Your Team ID (from Step 1)
+     - **Key ID**: Your Key ID (from Step 1)
+     - **Private Key**: Upload the `.p8` file (from Step 1)
+   - Click "Save"
+
+3. **Add Authorized Domains**
+   - Go to Authentication → Settings → Authorized domains
+   - Add your domains:
+     - `localhost` (for development)
+     - `127.0.0.1` (for development)
+     - `yourdomain.com` (for production)
+
+### Step 3: Code Configuration
+
+The Apple Sign-In is already configured in the code:
+
+```javascript
+const appleProvider = new OAuthProvider("apple.com");
+appleProvider.addScope("email");
+appleProvider.addScope("name");
 ```
 
-### 2. Configure LINE OAuth
-1. Edit `functions/.env` with your LINE channel credentials
-2. Set callback URL in LINE Developers Console: `https://daring-calling-827.web.app`
+### Step 4: Testing
 
-### 3. Deploy Web App
-```bash
-npm run deploy-all
-```
+1. **Development Testing**
+   - Use `localhost` or `127.0.0.1`
+   - Make sure these domains are in Firebase authorized domains
+   - Test with a real Apple ID
 
-## 📋 Features
+2. **Production Testing**
+   - Deploy to your domain
+   - Ensure domain is verified in Apple Developer Console
+   - Test with real Apple IDs
 
-- ✅ **LINE Login** with OAuth 2.0
-- ✅ **Google Sign-In** 
-- ✅ **Apple Sign-In**
-- ✅ **Email/Password** authentication
-- ✅ **Account Linking** between providers
-- ✅ **Firebase Cloud Functions** backend
-- ✅ **Real-time** authentication state
-- ✅ **Responsive** design
+## 🚨 Common Issues and Solutions
 
-## 🏗️ Architecture
+### Issue 1: "Apple Sign-In is not enabled"
+**Solution**: Enable Apple provider in Firebase Console → Authentication → Sign-in method
 
-```
-Frontend (index.html) 
-    ↓
-Firebase Auth SDK
-    ↓
-Firebase Cloud Functions
-    ↓
-LINE OAuth API
-```
+### Issue 2: "Unauthorized domain"
+**Solution**: Add your domain to Firebase Console → Authentication → Settings → Authorized domains
 
-## 🔧 Configuration
+### Issue 3: "Invalid configuration"
+**Solution**: 
+- Verify Service ID, Team ID, and Key ID are correct
+- Ensure private key file is properly uploaded
+- Check that domain is verified in Apple Developer Console
 
-### Environment Variables
-Create `functions/.env`:
-```env
-LINE_CHANNEL_ID=your-line-channel-id
-LINE_CHANNEL_SECRET=your-line-channel-secret
-LINE_REDIRECT_URI=https://daring-calling-827.web.app
-```
+### Issue 4: "Popup blocked"
+**Solution**: Allow popups for your domain in browser settings
 
-### Firebase Console Setup
-1. Enable Authentication providers:
-   - Google
-   - LINE (OIDC)
-   - Apple
-   - Email/Password
+### Issue 5: "Network error"
+**Solution**: 
+- Check internet connection
+- Verify Apple Developer Console is accessible
+- Check if Apple services are down
 
-2. Add authorized domains:
-   - `localhost`
-   - `127.0.0.1`
-   - `daring-calling-827.web.app`
+## 🔧 Debugging
 
-## 📁 Project Structure
+Use the "Check Apple Setup Status" button in the app to verify your configuration.
 
-```
-firebase-auth/
-├── functions/                 # Cloud Functions
-│   ├── index.js              # LINE OAuth functions
-│   ├── package.json          # Functions dependencies
-│   └── .env                  # Environment variables
-├── index.html                # Main web app
-├── app-simple.js             # Frontend logic
-├── deploy-functions.js       # Deployment script
-└── CLOUD_FUNCTIONS_SETUP.md  # Detailed setup guide
-```
+Check browser console for detailed error messages.
+
+## 📱 Browser Compatibility
+
+Apple Sign-In works on:
+- Safari (macOS, iOS)
+- Chrome (macOS, Windows)
+- Firefox (macOS, Windows)
+- Edge (Windows)
+
+## 🔒 Security Notes
+
+- Keep your private key secure
+- Never commit `.p8` files to version control
+- Use environment variables for sensitive data in production
+- Regularly rotate your Apple private keys
+
+## 📚 Additional Resources
+
+- [Apple Sign-In Documentation](https://developer.apple.com/sign-in-with-apple/)
+- [Firebase Apple Auth Documentation](https://firebase.google.com/docs/auth/web/apple)
+- [Apple Developer Guidelines](https://developer.apple.com/app-store/review/guidelines/#sign-in-with-apple)
 
 ## 🚀 Deployment
 
-### Deploy Functions Only
-```bash
-npm run deploy-functions
-```
-
-### Deploy Everything
-```bash
-npm run deploy-all
-```
-
-### Manual Deployment
-```bash
-# Deploy functions
-firebase deploy --only functions
-
-# Deploy web app
-firebase deploy --only hosting
-```
-
-## 🔍 Testing
-
-1. **Local Testing**:
+1. Deploy Firebase Functions:
    ```bash
-   firebase emulators:start --only functions
+   firebase deploy --only functions
    ```
 
-2. **Production Testing**:
-   - Deploy functions
-   - Test LINE login flow
-   - Verify user creation/authentication
-
-## 📚 Documentation
-
-- [Cloud Functions Setup](CLOUD_FUNCTIONS_SETUP.md) - Detailed configuration guide
-- [Firebase Functions](https://firebase.google.com/docs/functions) - Official documentation
-- [LINE Login](https://developers.line.biz/en/docs/line-login/) - LINE OAuth guide
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Functions not deployed**:
+2. Deploy to Firebase Hosting:
    ```bash
-   firebase functions:log
+   firebase deploy --only hosting
    ```
 
-2. **LINE OAuth errors**:
-   - Check LINE channel configuration
-   - Verify callback URL matches exactly
-
-3. **Environment variables**:
-   - Ensure `.env` file exists in `functions/` directory
-   - Check variable names match exactly
-
-## 🔒 Security
-
-- ✅ State parameter validation
-- ✅ LINE ID token verification
-- ✅ Firebase custom token generation
-- ✅ Environment variable protection
-
-## 📈 Monitoring
-
-- **Firebase Console**: Monitor function execution and errors
-- **LINE Developers Console**: Check OAuth usage and errors
-- **Firebase Analytics**: Track authentication events
+3. Or deploy to your own domain and ensure it's added to authorized domains.
 
 ---
 
-**Note**: This project uses Firebase Cloud Functions instead of a traditional backend server for better scalability and security.
+## Other Authentication Methods
+
+This project also supports:
+- **Google Sign-In**: Configure in Firebase Console
+- **LINE Login**: Configure LINE Channel ID and Secret
+- **Email/Password**: Basic email authentication
+
+For more information, check the Firebase Console documentation for each provider.
