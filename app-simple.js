@@ -941,7 +941,7 @@ async function checkFunctionsHealth() {
     const response = await fetch(`${FUNCTIONS_BASE_URL}/getLineAuthUrlHttp`, {
       method: 'GET',
       headers: {
-        'Origin': 'http://127.0.0.1:5502'
+        'Origin': 'http://127.0.0.1:5500'
       }
     });
     
