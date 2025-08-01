@@ -307,6 +307,14 @@
         </p>
       </div>
 
+      <!-- Provider Status Display (Auto-updated) -->
+      <div id="providerStatusContainer" class="provider-status-container" style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; display: none;">
+        <h3>🔧 Authentication Providers Status</h3>
+        <div id="providerStatusContent">
+          <p>Checking provider availability...</p>
+        </div>
+      </div>
+
       <div class="info">
         <h3>📋 Setup Instructions:</h3>
         <ol>
@@ -504,6 +512,8 @@
       if (checkAppleSetupBtn) {
         checkAppleSetupBtn.addEventListener("click", checkAppleSetup);
       }
+
+      // Provider status is now checked automatically on page load and auth state changes
 
       // LINE Login Functions - Production Cloud Functions
       const FUNCTIONS_BASE_URL =
@@ -827,6 +837,198 @@
         if (logoutBtn) logoutBtn.style.display = "none";
       }
 
+      // Function to check enabled providers and show/hide buttons accordingly
+      async function checkEnabledProviders() {
+        try {
+          console.log("🔍 Checking enabled providers...");
+          
+          const enabledProviders = [];
+          const projectId = firebaseConfig.projectId;
+          
+          // Method 1: Test provider availability by creating instances
+          console.log("Testing provider availability...");
+          
+          // Test Google provider
+          try {
+            const testGoogleProvider = new GoogleAuthProvider();
+            testGoogleProvider.addScope("email");
+            testGoogleProvider.addScope("profile");
+            console.log("✅ Google provider can be created");
+            enabledProviders.push({
+              providerId: 'google.com',
+              name: 'Google',
+              state: 'AVAILABLE'
+            });
+          } catch (error) {
+            console.log("❌ Google provider creation failed:", error.message);
+          }
+          
+          // Test Apple provider
+          try {
+            const testAppleProvider = new OAuthProvider('apple.com');
+            testAppleProvider.addScope("email");
+            testAppleProvider.addScope("name");
+            console.log("✅ Apple provider can be created");
+            enabledProviders.push({
+              providerId: 'apple.com',
+              name: 'Apple',
+              state: 'AVAILABLE'
+            });
+          } catch (error) {
+            console.log("❌ Apple provider creation failed:", error.message);
+          }
+          
+          // LINE is always available since it's custom
+          enabledProviders.push({
+            providerId: 'line.com',
+            name: 'LINE',
+            state: 'AVAILABLE'
+          });
+          console.log("✅ LINE provider available (custom)");
+          
+          // Method 2: Check Firebase configuration
+          console.log("Firebase configuration check:");
+          console.log("- Project ID:", projectId);
+          console.log("- Auth Domain:", firebaseConfig.authDomain);
+          console.log("- API Key:", firebaseConfig.apiKey ? "Present" : "Missing");
+          
+          // Method 3: Check current domain authorization
+          const currentDomain = window.location.hostname;
+          const isLocalhost = currentDomain === 'localhost' || currentDomain === '127.0.0.1';
+          const isFirebaseDomain = currentDomain.includes('firebaseapp.com') || currentDomain.includes('web.app');
+          
+          console.log("Domain check:");
+          console.log("- Current domain:", currentDomain);
+          console.log("- Is localhost:", isLocalhost);
+          console.log("- Is Firebase domain:", isFirebaseDomain);
+          
+          // Method 4: Check browser compatibility
+          const userAgent = navigator.userAgent;
+          const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+          const isChrome = /Chrome/.test(userAgent);
+          const isFirefox = /Firefox/.test(userAgent);
+          
+          console.log("Browser compatibility:");
+          console.log("- Safari:", isSafari);
+          console.log("- Chrome:", isChrome);
+          console.log("- Firefox:", isFirefox);
+          
+          // Show/hide provider buttons based on what's available
+          const googleBtn = document.getElementById("googleLoginBtn");
+          const appleBtn = document.getElementById("appleLoginBtn");
+          const lineBtn = document.getElementById("lineLoginBtn");
+          
+          // Google provider
+          if (googleBtn) {
+            const googleEnabled = enabledProviders.some(p => p.providerId === 'google.com');
+            if (googleEnabled) {
+              googleBtn.style.display = 'flex';
+              console.log("✅ Google provider enabled");
+            } else {
+              googleBtn.style.display = 'none';
+              console.log("❌ Google provider disabled");
+            }
+          }
+          
+          // Apple provider
+          if (appleBtn) {
+            const appleEnabled = enabledProviders.some(p => p.providerId === 'apple.com');
+            if (appleEnabled) {
+              appleBtn.style.display = 'flex';
+              console.log("✅ Apple provider enabled");
+            } else {
+              appleBtn.style.display = 'none';
+              console.log("❌ Apple provider disabled");
+            }
+          }
+          
+          // LINE provider (always show since it's custom)
+          if (lineBtn) {
+            lineBtn.style.display = 'flex';
+            console.log("✅ LINE provider (custom)");
+          }
+          
+          // Show summary
+          const providerNames = enabledProviders.map(p => p.name).join(', ');
+          const providerSummary = enabledProviders.length > 0 
+            ? `Available providers: ${providerNames}`
+            : 'No providers available';
+          console.log(providerSummary);
+          
+          // Update the dedicated provider status container
+          const statusContainer = document.getElementById('providerStatusContainer');
+          const statusContent = document.getElementById('providerStatusContent');
+          
+          if (statusContainer && statusContent) {
+            let providerList = '';
+            if (enabledProviders.length > 0) {
+              providerList = enabledProviders.map(p => 
+                `<li><strong>${p.name}</strong> (${p.providerId}) - ${p.state}</li>`
+              ).join('');
+            } else {
+              providerList = '<li>No providers available</li>';
+            }
+            
+            const domainStatus = isLocalhost ? 'Localhost (Development)' : 
+                               isFirebaseDomain ? 'Firebase Domain' : 
+                               'Custom Domain';
+            
+            // Update container styling based on results
+            if (enabledProviders.length > 0) {
+              statusContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px;';
+            } else {
+              statusContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;';
+            }
+            
+            statusContent.innerHTML = `
+              <p><strong>Project ID:</strong> ${projectId}</p>
+              <p><strong>Total Available:</strong> ${enabledProviders.length}</p>
+              <p><strong>Current Domain:</strong> ${currentDomain} (${domainStatus})</p>
+              <p><strong>Browser:</strong> ${isSafari ? 'Safari' : isChrome ? 'Chrome' : isFirefox ? 'Firefox' : 'Other'}</p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                ${providerList}
+              </ul>
+              <p><small>Note: This checks provider availability. Actual functionality depends on Firebase Console settings.</small></p>
+              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
+            `;
+            
+            // Show the container
+            statusContainer.style.display = 'block';
+          }
+          
+          // Provider status is now displayed on the page automatically - no alert needed
+          
+        } catch (error) {
+          console.error("Error checking enabled providers:", error);
+          
+          // Fallback: show all providers if we can't check
+          console.log("⚠️ Could not check provider status, showing all providers");
+          const googleBtn = document.getElementById("googleLoginBtn");
+          const appleBtn = document.getElementById("appleLoginBtn");
+          const lineBtn = document.getElementById("lineLoginBtn");
+          
+          if (googleBtn) googleBtn.style.display = 'flex';
+          if (appleBtn) appleBtn.style.display = 'flex';
+          if (lineBtn) lineBtn.style.display = 'flex';
+          
+          // Show error status in the dedicated container
+          const statusContainer = document.getElementById('providerStatusContainer');
+          const statusContent = document.getElementById('providerStatusContent');
+          
+          if (statusContainer && statusContent) {
+            statusContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24;';
+            statusContent.innerHTML = `
+              <h4>⚠️ Provider Status Check Error:</h4>
+              <p><strong>Error:</strong> ${error.message}</p>
+              <p><strong>Action:</strong> Showing all providers as fallback</p>
+              <p><small>Check Firebase Console > Authentication > Sign-in method to verify enabled providers.</small></p>
+              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
+            `;
+            statusContainer.style.display = 'block';
+          }
+        }
+      }
+
       // Auth state listener for Firebase
       auth.onAuthStateChanged((user) => {
         console.log(
@@ -834,10 +1036,12 @@
           user ? "User logged in" : "No user"
         );
         checkUserStatus();
+        checkEnabledProviders(); // Update provider status on auth state change
       });
 
       // Check user status on page load
       checkUserStatus();
+      checkEnabledProviders(); // Initial check on page load
 
       // Handle logout
       const logoutBtn = document.getElementById("logoutBtn");

@@ -157,7 +157,52 @@ Apple Sign-In works on:
 
 3. Or deploy to your own domain and ensure it's added to authorized domains.
 
----
+## 🔧 Provider Management
+
+### Checking Available Providers
+
+The app now includes a feature to check which authentication providers are available:
+
+1. **Automatic Display**: Provider status is automatically displayed at the top of the page when it loads
+2. **No Manual Action Required**: No need to click any buttons - the status appears immediately
+3. **Real-time Updates**: Provider status updates automatically when authentication state changes
+4. **Smart UI**: Only available providers are shown as login buttons, unavailable ones are hidden
+
+### Provider Status Display
+
+The app automatically shows:
+- ✅ **Available providers** with their display names and status
+- ❌ **Unavailable providers** are hidden from the UI
+- 📊 **Total count** of available providers
+- 🌐 **Domain information** (localhost, Firebase domain, or custom domain)
+- 🕒 **Last checked timestamp**
+- 🎨 **Color-coded status**: Green for success, yellow for warnings, red for errors
+
+### How It Works (No Cloud Functions Required)
+
+The provider checking uses client-side methods:
+
+1. **Provider Creation Test**: Attempts to create provider instances
+2. **Firebase Configuration Check**: Validates Firebase config
+3. **Domain Authorization Check**: Verifies current domain
+4. **Browser Compatibility Check**: Ensures browser support
+
+### Troubleshooting Provider Issues
+
+If you see fewer providers than expected:
+
+1. **Check Firebase Console**: Go to Authentication > Sign-in method
+2. **Enable Providers**: Click on each provider and enable it
+3. **Configure Settings**: Fill in required configuration for each provider
+4. **Check Domain**: Ensure your domain is in authorized domains
+5. **Refresh Page**: Reload the page to see updated provider status
+
+### Benefits of Client-Side Checking
+
+- ✅ **No Cloud Functions required** - Works immediately
+- ✅ **Faster response** - No network requests needed
+- ✅ **Real-time updates** - Checks on every page load
+- ✅ **Detailed diagnostics** - Shows domain, browser, and config info
 
 ## Other Authentication Methods
 
