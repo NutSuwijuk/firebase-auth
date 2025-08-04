@@ -306,17 +306,6 @@
           Linking
         </p>
       </div>
-
-
-
-      <!-- User Linked Providers Display (Auto-updated) -->
-      <div id="userLinkedProvidersContainer" class="user-linked-providers-container" style="margin-bottom: 20px; padding: 15px; background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; display: none;">
-        <h3>🔗 User's Linked Authentication Providers</h3>
-        <div id="userLinkedProvidersContent">
-          <p>Checking user's linked providers...</p>
-        </div>
-      </div>
-
       <div class="info">
         <h3>📋 Setup Instructions:</h3>
         <ol>
@@ -740,8 +729,6 @@
           }
           if (logoutBtn) logoutBtn.style.display = "block";
           
-          // Check and display user's linked providers
-          checkUserLinkedProviders(currentUser);
           return;
         }
 
@@ -773,8 +760,6 @@
           }
           if (logoutBtn) logoutBtn.style.display = "block";
           
-          // Check and display user's linked providers (LINE user)
-          checkUserLinkedProviders({ providerData: [{ providerId: 'line.com' }] });
           return;
         }
 
@@ -782,85 +767,10 @@
         if (userInfo) userInfo.style.display = "none";
         if (logoutBtn) logoutBtn.style.display = "none";
         
-        // Hide user linked providers container when no user is logged in
-        const userLinkedProvidersContainer = document.getElementById("userLinkedProvidersContainer");
-        if (userLinkedProvidersContainer) {
-          userLinkedProvidersContainer.style.display = "none";
-        }
+
       }
 
-      // Function to check and display user's linked authentication providers
-      function checkUserLinkedProviders(user) {
-        const userLinkedProvidersContainer = document.getElementById("userLinkedProvidersContainer");
-        const userLinkedProvidersContent = document.getElementById("userLinkedProvidersContent");
-        
-        if (!userLinkedProvidersContainer || !userLinkedProvidersContent) {
-          console.error("User linked providers container elements not found");
-          return;
-        }
 
-        try {
-          console.log("🔗 Checking user's linked providers...");
-          
-          if (!user || !user.providerData) {
-            // No user or no provider data
-            userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24;';
-            userLinkedProvidersContent.innerHTML = `
-              <h4>⚠️ No User Authentication Data</h4>
-              <p>No user is currently signed in or no provider data is available.</p>
-              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
-            `;
-            userLinkedProvidersContainer.style.display = 'block';
-            return;
-          }
-
-          const linkedProviders = user.providerData;
-          console.log("User's linked providers:", linkedProviders);
-
-          if (linkedProviders.length === 0) {
-            // User has no linked providers
-            userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; color: #856404;';
-            userLinkedProvidersContent.innerHTML = `
-              <h4>🔗 User's Linked Authentication Providers</h4>
-              <p><strong>Status:</strong> No providers linked to this account</p>
-              <p><strong>Total Linked:</strong> 0 providers</p>
-              <p><small>This user account is not linked to any authentication providers.</small></p>
-              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
-            `;
-            userLinkedProvidersContainer.style.display = 'block';
-            return;
-          }
-
-          // User has linked providers
-          const providerList = linkedProviders.map(provider => {
-            const providerName = getProviderDisplayName(provider.providerId);
-            return `<li><strong>${providerName}</strong> (${provider.providerId})</li>`;
-          }).join('');
-
-          userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px; color: #155724;';
-          userLinkedProvidersContent.innerHTML = `
-            <h4>🔗 User's Linked Authentication Providers</h4>
-            <p><strong>Status:</strong> ${linkedProviders.length} provider(s) linked to this account</p>
-            <p><strong>Total Linked:</strong> ${linkedProviders.length} provider(s)</p>
-            <ul style="margin: 10px 0; padding-left: 20px;">
-              ${providerList}
-            </ul>
-            <p><small>These are the authentication methods currently linked to your account.</small></p>
-            <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
-          `;
-          userLinkedProvidersContainer.style.display = 'block';
-
-        } catch (error) {
-          console.error("Error checking user's linked providers:", error);
-          userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24;';
-          userLinkedProvidersContent.innerHTML = `
-            <h4>⚠️ Error Checking User's Linked Providers</h4>
-            <p><strong>Error:</strong> ${error.message}</p>
-            <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
-          `;
-          userLinkedProvidersContainer.style.display = 'block';
-        }
-      }
 
       // Helper function to get provider display names
       function getProviderDisplayName(providerId) {
