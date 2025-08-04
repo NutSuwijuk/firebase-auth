@@ -307,11 +307,13 @@
         </p>
       </div>
 
-      <!-- Provider Status Display (Auto-updated) -->
-      <div id="providerStatusContainer" class="provider-status-container" style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; display: none;">
-        <h3>🔧 Authentication Providers Status</h3>
-        <div id="providerStatusContent">
-          <p>Checking provider availability...</p>
+
+
+      <!-- User Linked Providers Display (Auto-updated) -->
+      <div id="userLinkedProvidersContainer" class="user-linked-providers-container" style="margin-bottom: 20px; padding: 15px; background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; display: none;">
+        <h3>🔗 User's Linked Authentication Providers</h3>
+        <div id="userLinkedProvidersContent">
+          <p>Checking user's linked providers...</p>
         </div>
       </div>
 
@@ -333,19 +335,7 @@
           <li><strong>Apple Sign In:</strong> เปิดใช้งานใน Firebase Console</li>
         </ol>
         
-        <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
-          <h4>🍎 Apple Sign-In Setup Guide:</h4>
-          <ol>
-            <li><strong>Firebase Console:</strong> Authentication > Sign-in method > Apple > Enable</li>
-            <li><strong>Apple Developer Account:</strong> Create App ID and configure Sign-In capability</li>
-            <li><strong>Service ID:</strong> Create Service ID in Apple Developer Console</li>
-            <li><strong>Domain Verification:</strong> Add your domain to Apple Developer Console</li>
-            <li><strong>Private Key:</strong> Generate and upload private key to Firebase</li>
-            <li><strong>Team ID:</strong> Add your Apple Team ID to Firebase</li>
-            <li><strong>Bundle ID:</strong> Configure Bundle ID in Firebase</li>
-          </ol>
-          <button id="checkAppleSetupBtn" class="button secondary" style="margin-top: 10px;">🔍 Check Apple Setup Status</button>
-        </div>
+
       </div>
 
       <!-- User Information -->
@@ -461,57 +451,7 @@
       const googleProvider = new GoogleAuthProvider();
       const appleProvider = new OAuthProvider("apple.com");
 
-      // Apple Sign-In Setup Checker
-      async function checkAppleSetup() {
-        try {
-          console.log("🔍 Checking Apple Sign-In setup...");
-          
-          // Test if Apple provider is properly configured
-          const testResult = {
-            firebaseConfig: !!firebaseConfig,
-            appleProvider: !!appleProvider,
-            auth: !!auth,
-            currentDomain: window.location.hostname,
-            userAgent: navigator.userAgent
-          };
-          
-          console.log("Apple setup check result:", testResult);
-          
-          // Check if we're on a supported domain
-          const supportedDomains = ['localhost', '127.0.0.1', 'traveltech-f0674.web.app', 'traveltech-f0674.firebaseapp.com'];
-          const isSupportedDomain = supportedDomains.includes(window.location.hostname);
-          
-          let statusMessage = "🍎 Apple Sign-In Setup Status:\n\n";
-          statusMessage += `✅ Firebase Config: ${testResult.firebaseConfig ? 'OK' : 'Missing'}\n`;
-          statusMessage += `✅ Apple Provider: ${testResult.appleProvider ? 'OK' : 'Missing'}\n`;
-          statusMessage += `✅ Auth Instance: ${testResult.auth ? 'OK' : 'Missing'}\n`;
-          statusMessage += `🌐 Current Domain: ${testResult.currentDomain}\n`;
-          statusMessage += `🔗 Supported Domain: ${isSupportedDomain ? 'Yes' : 'No'}\n\n`;
-          
-          if (!isSupportedDomain) {
-            statusMessage += "⚠️ WARNING: Current domain may not be authorized.\n";
-            statusMessage += "Add this domain to Firebase Console > Authentication > Settings > Authorized domains\n\n";
-          }
-          
-          statusMessage += "📋 Next Steps:\n";
-          statusMessage += "1. Enable Apple Sign-In in Firebase Console\n";
-          statusMessage += "2. Configure Apple Developer Account\n";
-          statusMessage += "3. Add domain to authorized domains\n";
-          statusMessage += "4. Test with a real Apple ID\n";
-          
-          alert(statusMessage);
-          
-        } catch (error) {
-          console.error("Error checking Apple setup:", error);
-          alert(`Error checking Apple setup: ${error.message}`);
-        }
-      }
 
-      // Add event listener for Apple setup checker
-      const checkAppleSetupBtn = document.getElementById("checkAppleSetupBtn");
-      if (checkAppleSetupBtn) {
-        checkAppleSetupBtn.addEventListener("click", checkAppleSetup);
-      }
 
       // Provider status is now checked automatically on page load and auth state changes
 
@@ -799,6 +739,9 @@
                     `;
           }
           if (logoutBtn) logoutBtn.style.display = "block";
+          
+          // Check and display user's linked providers
+          checkUserLinkedProviders(currentUser);
           return;
         }
 
@@ -829,205 +772,113 @@
                     `;
           }
           if (logoutBtn) logoutBtn.style.display = "block";
+          
+          // Check and display user's linked providers (LINE user)
+          checkUserLinkedProviders({ providerData: [{ providerId: 'line.com' }] });
           return;
         }
 
         // No user logged in
         if (userInfo) userInfo.style.display = "none";
         if (logoutBtn) logoutBtn.style.display = "none";
-      }
-
-      // Function to check enabled providers and show/hide buttons accordingly
-      async function checkEnabledProviders() {
-        try {
-          console.log("🔍 Checking enabled providers...");
-          
-          const enabledProviders = [];
-          const projectId = firebaseConfig.projectId;
-          
-          // Method 1: Test provider availability by creating instances
-          console.log("Testing provider availability...");
-          
-          // Test Google provider
-          try {
-            const testGoogleProvider = new GoogleAuthProvider();
-            testGoogleProvider.addScope("email");
-            testGoogleProvider.addScope("profile");
-            console.log("✅ Google provider can be created");
-            enabledProviders.push({
-              providerId: 'google.com',
-              name: 'Google',
-              state: 'AVAILABLE'
-            });
-          } catch (error) {
-            console.log("❌ Google provider creation failed:", error.message);
-          }
-          
-          // Test Apple provider
-          try {
-            const testAppleProvider = new OAuthProvider('apple.com');
-            testAppleProvider.addScope("email");
-            testAppleProvider.addScope("name");
-            console.log("✅ Apple provider can be created");
-            enabledProviders.push({
-              providerId: 'apple.com',
-              name: 'Apple',
-              state: 'AVAILABLE'
-            });
-          } catch (error) {
-            console.log("❌ Apple provider creation failed:", error.message);
-          }
-          
-          // LINE is always available since it's custom
-          enabledProviders.push({
-            providerId: 'line.com',
-            name: 'LINE',
-            state: 'AVAILABLE'
-          });
-          console.log("✅ LINE provider available (custom)");
-          
-          // Method 2: Check Firebase configuration
-          console.log("Firebase configuration check:");
-          console.log("- Project ID:", projectId);
-          console.log("- Auth Domain:", firebaseConfig.authDomain);
-          console.log("- API Key:", firebaseConfig.apiKey ? "Present" : "Missing");
-          
-          // Method 3: Check current domain authorization
-          const currentDomain = window.location.hostname;
-          const isLocalhost = currentDomain === 'localhost' || currentDomain === '127.0.0.1';
-          const isFirebaseDomain = currentDomain.includes('firebaseapp.com') || currentDomain.includes('web.app');
-          
-          console.log("Domain check:");
-          console.log("- Current domain:", currentDomain);
-          console.log("- Is localhost:", isLocalhost);
-          console.log("- Is Firebase domain:", isFirebaseDomain);
-          
-          // Method 4: Check browser compatibility
-          const userAgent = navigator.userAgent;
-          const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-          const isChrome = /Chrome/.test(userAgent);
-          const isFirefox = /Firefox/.test(userAgent);
-          
-          console.log("Browser compatibility:");
-          console.log("- Safari:", isSafari);
-          console.log("- Chrome:", isChrome);
-          console.log("- Firefox:", isFirefox);
-          
-          // Show/hide provider buttons based on what's available
-          const googleBtn = document.getElementById("googleLoginBtn");
-          const appleBtn = document.getElementById("appleLoginBtn");
-          const lineBtn = document.getElementById("lineLoginBtn");
-          
-          // Google provider
-          if (googleBtn) {
-            const googleEnabled = enabledProviders.some(p => p.providerId === 'google.com');
-            if (googleEnabled) {
-              googleBtn.style.display = 'flex';
-              console.log("✅ Google provider enabled");
-            } else {
-              googleBtn.style.display = 'none';
-              console.log("❌ Google provider disabled");
-            }
-          }
-          
-          // Apple provider
-          if (appleBtn) {
-            const appleEnabled = enabledProviders.some(p => p.providerId === 'apple.com');
-            if (appleEnabled) {
-              appleBtn.style.display = 'flex';
-              console.log("✅ Apple provider enabled");
-            } else {
-              appleBtn.style.display = 'none';
-              console.log("❌ Apple provider disabled");
-            }
-          }
-          
-          // LINE provider (always show since it's custom)
-          if (lineBtn) {
-            lineBtn.style.display = 'flex';
-            console.log("✅ LINE provider (custom)");
-          }
-          
-          // Show summary
-          const providerNames = enabledProviders.map(p => p.name).join(', ');
-          const providerSummary = enabledProviders.length > 0 
-            ? `Available providers: ${providerNames}`
-            : 'No providers available';
-          console.log(providerSummary);
-          
-          // Update the dedicated provider status container
-          const statusContainer = document.getElementById('providerStatusContainer');
-          const statusContent = document.getElementById('providerStatusContent');
-          
-          if (statusContainer && statusContent) {
-            let providerList = '';
-            if (enabledProviders.length > 0) {
-              providerList = enabledProviders.map(p => 
-                `<li><strong>${p.name}</strong> (${p.providerId}) - ${p.state}</li>`
-              ).join('');
-            } else {
-              providerList = '<li>No providers available</li>';
-            }
-            
-            const domainStatus = isLocalhost ? 'Localhost (Development)' : 
-                               isFirebaseDomain ? 'Firebase Domain' : 
-                               'Custom Domain';
-            
-            // Update container styling based on results
-            if (enabledProviders.length > 0) {
-              statusContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px;';
-            } else {
-              statusContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;';
-            }
-            
-            statusContent.innerHTML = `
-              <p><strong>Project ID:</strong> ${projectId}</p>
-              <p><strong>Total Available:</strong> ${enabledProviders.length}</p>
-              <p><strong>Current Domain:</strong> ${currentDomain} (${domainStatus})</p>
-              <p><strong>Browser:</strong> ${isSafari ? 'Safari' : isChrome ? 'Chrome' : isFirefox ? 'Firefox' : 'Other'}</p>
-              <ul style="margin: 10px 0; padding-left: 20px;">
-                ${providerList}
-              </ul>
-              <p><small>Note: This checks provider availability. Actual functionality depends on Firebase Console settings.</small></p>
-              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
-            `;
-            
-            // Show the container
-            statusContainer.style.display = 'block';
-          }
-          
-          // Provider status is now displayed on the page automatically - no alert needed
-          
-        } catch (error) {
-          console.error("Error checking enabled providers:", error);
-          
-          // Fallback: show all providers if we can't check
-          console.log("⚠️ Could not check provider status, showing all providers");
-          const googleBtn = document.getElementById("googleLoginBtn");
-          const appleBtn = document.getElementById("appleLoginBtn");
-          const lineBtn = document.getElementById("lineLoginBtn");
-          
-          if (googleBtn) googleBtn.style.display = 'flex';
-          if (appleBtn) appleBtn.style.display = 'flex';
-          if (lineBtn) lineBtn.style.display = 'flex';
-          
-          // Show error status in the dedicated container
-          const statusContainer = document.getElementById('providerStatusContainer');
-          const statusContent = document.getElementById('providerStatusContent');
-          
-          if (statusContainer && statusContent) {
-            statusContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24;';
-            statusContent.innerHTML = `
-              <h4>⚠️ Provider Status Check Error:</h4>
-              <p><strong>Error:</strong> ${error.message}</p>
-              <p><strong>Action:</strong> Showing all providers as fallback</p>
-              <p><small>Check Firebase Console > Authentication > Sign-in method to verify enabled providers.</small></p>
-              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
-            `;
-            statusContainer.style.display = 'block';
-          }
+        
+        // Hide user linked providers container when no user is logged in
+        const userLinkedProvidersContainer = document.getElementById("userLinkedProvidersContainer");
+        if (userLinkedProvidersContainer) {
+          userLinkedProvidersContainer.style.display = "none";
         }
       }
+
+      // Function to check and display user's linked authentication providers
+      function checkUserLinkedProviders(user) {
+        const userLinkedProvidersContainer = document.getElementById("userLinkedProvidersContainer");
+        const userLinkedProvidersContent = document.getElementById("userLinkedProvidersContent");
+        
+        if (!userLinkedProvidersContainer || !userLinkedProvidersContent) {
+          console.error("User linked providers container elements not found");
+          return;
+        }
+
+        try {
+          console.log("🔗 Checking user's linked providers...");
+          
+          if (!user || !user.providerData) {
+            // No user or no provider data
+            userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24;';
+            userLinkedProvidersContent.innerHTML = `
+              <h4>⚠️ No User Authentication Data</h4>
+              <p>No user is currently signed in or no provider data is available.</p>
+              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
+            `;
+            userLinkedProvidersContainer.style.display = 'block';
+            return;
+          }
+
+          const linkedProviders = user.providerData;
+          console.log("User's linked providers:", linkedProviders);
+
+          if (linkedProviders.length === 0) {
+            // User has no linked providers
+            userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; color: #856404;';
+            userLinkedProvidersContent.innerHTML = `
+              <h4>🔗 User's Linked Authentication Providers</h4>
+              <p><strong>Status:</strong> No providers linked to this account</p>
+              <p><strong>Total Linked:</strong> 0 providers</p>
+              <p><small>This user account is not linked to any authentication providers.</small></p>
+              <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
+            `;
+            userLinkedProvidersContainer.style.display = 'block';
+            return;
+          }
+
+          // User has linked providers
+          const providerList = linkedProviders.map(provider => {
+            const providerName = getProviderDisplayName(provider.providerId);
+            return `<li><strong>${providerName}</strong> (${provider.providerId})</li>`;
+          }).join('');
+
+          userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px; color: #155724;';
+          userLinkedProvidersContent.innerHTML = `
+            <h4>🔗 User's Linked Authentication Providers</h4>
+            <p><strong>Status:</strong> ${linkedProviders.length} provider(s) linked to this account</p>
+            <p><strong>Total Linked:</strong> ${linkedProviders.length} provider(s)</p>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              ${providerList}
+            </ul>
+            <p><small>These are the authentication methods currently linked to your account.</small></p>
+            <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
+          `;
+          userLinkedProvidersContainer.style.display = 'block';
+
+        } catch (error) {
+          console.error("Error checking user's linked providers:", error);
+          userLinkedProvidersContainer.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24;';
+          userLinkedProvidersContent.innerHTML = `
+            <h4>⚠️ Error Checking User's Linked Providers</h4>
+            <p><strong>Error:</strong> ${error.message}</p>
+            <p><small>Last checked: ${new Date().toLocaleString()}</small></p>
+          `;
+          userLinkedProvidersContainer.style.display = 'block';
+        }
+      }
+
+      // Helper function to get provider display names
+      function getProviderDisplayName(providerId) {
+        const providerNames = {
+          'google.com': 'Google',
+          'apple.com': 'Apple',
+          'line.com': 'LINE',
+          'facebook.com': 'Facebook',
+          'twitter.com': 'Twitter',
+          'github.com': 'GitHub',
+          'microsoft.com': 'Microsoft',
+          'yahoo.com': 'Yahoo',
+          'password': 'Email/Password'
+        };
+        return providerNames[providerId] || providerId;
+      }
+
+
 
       // Auth state listener for Firebase
       auth.onAuthStateChanged((user) => {
@@ -1036,12 +887,10 @@
           user ? "User logged in" : "No user"
         );
         checkUserStatus();
-        checkEnabledProviders(); // Update provider status on auth state change
       });
 
       // Check user status on page load
       checkUserStatus();
-      checkEnabledProviders(); // Initial check on page load
 
       // Handle logout
       const logoutBtn = document.getElementById("logoutBtn");

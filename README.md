@@ -204,6 +204,51 @@ If you see fewer providers than expected:
 - ✅ **Real-time updates** - Checks on every page load
 - ✅ **Detailed diagnostics** - Shows domain, browser, and config info
 
+## 🔗 User's Linked Authentication Providers
+
+### Overview
+
+The app now displays which authentication providers are linked to the currently logged-in user's account. This is different from the general "available providers" - it shows the specific authentication methods that the current user has used to sign in.
+
+### Features
+
+1. **Automatic Detection**: Shows linked providers immediately when a user is signed in
+2. **Real-time Updates**: Updates automatically when authentication state changes
+3. **Clear Display**: Shows provider names and IDs in a user-friendly format
+4. **Multiple Scenarios**: Handles different authentication states:
+   - ✅ **User with linked providers**: Shows list of linked authentication methods
+   - ⚠️ **User without linked providers**: Shows "no providers linked" message
+   - ❌ **No user signed in**: Hides the section entirely
+
+### What It Shows
+
+For a signed-in user, the app displays:
+- **Total linked providers count**
+- **List of linked providers** with friendly names:
+  - Google (`google.com`)
+  - Apple (`apple.com`)
+  - LINE (`line.com`)
+  - Facebook (`facebook.com`)
+  - Twitter (`twitter.com`)
+  - GitHub (`github.com`)
+  - Microsoft (`microsoft.com`)
+  - Yahoo (`yahoo.com`)
+  - Email/Password (`password`)
+- **Last checked timestamp**
+- **Color-coded status**: Green for linked providers, yellow for no providers, red for errors
+
+### Technical Details
+
+The feature uses `firebase.auth().currentUser.providerData` to retrieve the user's linked authentication providers. This array contains information about each authentication method the user has used to sign in to their account.
+
+### Example Scenarios
+
+1. **User signed in with Google**: Shows "Google (google.com)" as linked provider
+2. **User signed in with Apple**: Shows "Apple (apple.com)" as linked provider
+3. **User signed in with LINE**: Shows "LINE (line.com)" as linked provider
+4. **User with multiple linked accounts**: Shows all linked providers in a list
+5. **User signed out**: Section is hidden
+
 ## Other Authentication Methods
 
 This project also supports:
