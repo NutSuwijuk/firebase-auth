@@ -306,6 +306,18 @@
           Linking
         </p>
       </div>
+
+      <!-- Available Providers Status -->
+      <div id="availableProvidersContainer" class="available-providers-container" style="margin-bottom: 20px; padding: 15px; background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3>🔧 Available Authentication Providers</h3>
+          <button id="refreshProvidersBtn" class="button secondary" style="padding: 8px 12px; font-size: 12px;">🔄 Refresh</button>
+        </div>
+        <div id="availableProvidersContent">
+          <p>Checking available providers...</p>
+        </div>
+      </div>
+
       <div class="info">
         <h3>📋 Setup Instructions:</h3>
         <ol>
@@ -440,7 +452,139 @@
       const googleProvider = new GoogleAuthProvider();
       const appleProvider = new OAuthProvider("apple.com");
 
-
+      // Function to check and display available authentication providers
+      async function checkAvailableProviders() {
+        try {
+          console.log("🔍 Checking available authentication providers...");
+          
+          const availableProviders = [];
+          const projectId = firebaseConfig.projectId;
+          const currentDomain = window.location.hostname;
+          const userAgent = navigator.userAgent;
+          
+          // Check Google provider
+          try {
+            const testGoogleProvider = new GoogleAuthProvider();
+            testGoogleProvider.addScope("email");
+            testGoogleProvider.addScope("profile");
+            console.log("✅ Google provider available");
+            availableProviders.push({
+              providerId: 'google.com',
+              name: 'Google',
+              status: 'AVAILABLE',
+              icon: '🔑'
+            });
+          } catch (error) {
+            console.log("❌ Google provider not available:", error.message);
+            availableProviders.push({
+              providerId: 'google.com',
+              name: 'Google',
+              status: 'NOT_AVAILABLE',
+              icon: '🔑'
+            });
+          }
+          
+          // Check Apple provider
+          try {
+            const testAppleProvider = new OAuthProvider('apple.com');
+            testAppleProvider.addScope("email");
+            testAppleProvider.addScope("name");
+            console.log("✅ Apple provider available");
+            availableProviders.push({
+              providerId: 'apple.com',
+              name: 'Apple',
+              status: 'AVAILABLE',
+              icon: '🍎'
+            });
+          } catch (error) {
+            console.log("❌ Apple provider not available:", error.message);
+            availableProviders.push({
+              providerId: 'apple.com',
+              name: 'Apple',
+              status: 'NOT_AVAILABLE',
+              icon: '🍎'
+            });
+          }
+          
+          // LINE provider (custom implementation)
+          availableProviders.push({
+            providerId: 'line.com',
+            name: 'LINE',
+            status: 'AVAILABLE',
+            icon: '🟩'
+          });
+          console.log("✅ LINE provider available (custom)");
+          
+          // Update the available providers display
+          const container = document.getElementById('availableProvidersContainer');
+          const content = document.getElementById('availableProvidersContent');
+          
+          if (container && content) {
+            const availableCount = availableProviders.filter(p => p.status === 'AVAILABLE').length;
+            const totalCount = availableProviders.length;
+            
+            let providerList = '';
+            availableProviders.forEach(provider => {
+              const statusIcon = provider.status === 'AVAILABLE' ? '✅' : '❌';
+              const statusText = provider.status === 'AVAILABLE' ? 'Available' : 'Not Available';
+              const statusColor = provider.status === 'AVAILABLE' ? '#155724' : '#721c24';
+              
+              providerList += `
+                <div style="display: flex; align-items: center; margin: 8px 0; padding: 8px; background-color: ${provider.status === 'AVAILABLE' ? '#f8f9fa' : '#f8d7da'}; border-radius: 5px;">
+                  <span style="margin-right: 10px; font-size: 18px;">${provider.icon}</span>
+                  <div style="flex: 1;">
+                    <strong>${provider.name}</strong> (${provider.providerId})
+                  </div>
+                  <div style="color: ${statusColor}; font-weight: bold;">
+                    ${statusIcon} ${statusText}
+                  </div>
+                </div>
+              `;
+            });
+            
+            // Update container styling based on availability
+            if (availableCount > 0) {
+              container.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px;';
+            } else {
+              container.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;';
+            }
+            
+            content.innerHTML = `
+              <div style="margin-bottom: 15px;">
+                <p><strong>Project ID:</strong> ${projectId}</p>
+                <p><strong>Available Providers:</strong> ${availableCount}/${totalCount}</p>
+                <p><strong>Current Domain:</strong> ${currentDomain}</p>
+                <p><strong>Browser:</strong> ${userAgent.includes('Chrome') ? 'Chrome' : userAgent.includes('Safari') ? 'Safari' : userAgent.includes('Firefox') ? 'Firefox' : 'Other'}</p>
+              </div>
+              <div style="margin-top: 15px;">
+                ${providerList}
+              </div>
+              <p style="margin-top: 15px; font-size: 12px; color: #666;">
+                <small>Last updated: ${new Date().toLocaleString()}</small>
+              </p>
+            `;
+            
+            container.style.display = 'block';
+          }
+          
+        } catch (error) {
+          console.error("Error checking available providers:", error);
+          
+          // Show error in the container
+          const container = document.getElementById('availableProvidersContainer');
+          const content = document.getElementById('availableProvidersContent');
+          
+          if (container && content) {
+            container.style.cssText = 'margin-bottom: 20px; padding: 15px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24;';
+            content.innerHTML = `
+              <h4>⚠️ Error Checking Available Providers</h4>
+              <p><strong>Error:</strong> ${error.message}</p>
+              <p><small>Last updated: ${new Date().toLocaleString()}</small></p>
+            `;
+            container.style.display = 'block';
+          }
+        }
+      }
 
       // Provider status is now checked automatically on page load and auth state changes
 
@@ -797,10 +941,21 @@
           user ? "User logged in" : "No user"
         );
         checkUserStatus();
+        checkAvailableProviders(); // Update available providers status
       });
 
-      // Check user status on page load
+      // Check user status and available providers on page load
       checkUserStatus();
+      checkAvailableProviders(); // Initial check on page load
+
+      // Add event listener for refresh providers button
+      const refreshProvidersBtn = document.getElementById("refreshProvidersBtn");
+      if (refreshProvidersBtn) {
+        refreshProvidersBtn.addEventListener("click", () => {
+          console.log("🔄 Refreshing available providers...");
+          checkAvailableProviders();
+        });
+      }
 
       // Handle logout
       const logoutBtn = document.getElementById("logoutBtn");
