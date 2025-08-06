@@ -447,6 +447,7 @@
             // Add scopes if needed
             googleProvider.addScope("email");
             googleProvider.addScope("profile");
+            googleProvider.addScope("phone");
 
             // Sign in with popup
             const result = await signInWithPopup(auth, googleProvider);

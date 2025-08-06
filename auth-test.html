@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Data Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .data-item { margin: 10px 0; }
+        .verified { color: green; }
+        .not-verified { color: red; }
+        .unknown { color: orange; }
+        button { margin: 10px; padding: 10px 20px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Firebase Auth Data Test</h1>
+    <p>ทดสอบข้อมูลที่ได้จาก Google, Apple, และ LINE Authentication</p>
+    
+    <div class="section">
+        <h2>🔐 Authentication Providers</h2>
+        <button id="googleBtn">Test Google Auth</button>
+        <button id="appleBtn">Test Apple Auth</button>
+        <button id="lineBtn">Test LINE Auth</button>
+        <button id="logoutBtn">Sign Out</button>
+    </div>
+
+    <div id="dataDisplay" class="section" style="display:none;">
+        <h2>📊 Authentication Data</h2>
+        <div id="basicInfo"></div>
+        <div id="emailInfo"></div>
+        <div id="phoneInfo"></div>
+        <div id="providerInfo"></div>
+        <div id="rawData"></div>
+        <div id="summaryInfo"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, OAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4pMv-UMVU4hqkSV-FaEiA1Z0txFo9j0I",
+            authDomain: "traveltech-f0674.firebaseapp.com",
+            projectId: "traveltech-f0674",
+            storageBucket: "traveltech-f0674.firebasestorage.app",
+            messagingSenderId: "843584449870",
+            appId: "1:843584449870:web:c5c49bc62b7afe609d021f",
+            measurementId: "G-2M28EEC4W7",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+        const appleProvider = new OAuthProvider("apple.com");
+
+        // Add scopes
+        googleProvider.addScope("email");
+        googleProvider.addScope("profile");
+        googleProvider.addScope("phone");
+        googleProvider.addScope("openid");
+
+        appleProvider.addScope("email");
+        appleProvider.addScope("name");
+        appleProvider.addScope("openid");
+
+        const FUNCTIONS_BASE_URL = "https://asia-southeast1-traveltech-f0674.cloudfunctions.net";
+
+        function createDataItem(label, value, status = null) {
+            const div = document.createElement('div');
+            div.className = 'data-item';
+            let statusText = '';
+            if (status === 'verified') statusText = ' <span class="verified">✅ Verified</span>';
+            else if (status === 'not-verified') statusText = ' <span class="not-verified">❌ Not Verified</span>';
+            else if (status === 'unknown') statusText = ' <span class="unknown">❓ Unknown</span>';
+            
+            div.innerHTML = `<strong>${label}:</strong> ${value || 'N/A'}${statusText}`;
+            return div;
+        }
+
+        function displayUserData(user, provider = 'firebase') {
+            const dataDisplay = document.getElementById('dataDisplay');
+            dataDisplay.style.display = 'block';
+
+            // Basic Info
+            const basicInfo = document.getElementById('basicInfo');
+            basicInfo.innerHTML = '<h3>👤 Basic Information</h3>';
+            basicInfo.appendChild(createDataItem('UID', user.uid));
+            basicInfo.appendChild(createDataItem('Display Name', user.displayName));
+            basicInfo.appendChild(createDataItem('Provider', provider));
+
+            // Email Info
+            const emailInfo = document.getElementById('emailInfo');
+            emailInfo.innerHTML = '<h3>📧 Email Information</h3>';
+            
+            if (user.email) {
+                const emailVerified = user.emailVerified !== undefined ? user.emailVerified : 'unknown';
+                const emailStatus = emailVerified === true ? 'verified' : 
+                                  emailVerified === false ? 'not-verified' : 'unknown';
+                emailInfo.appendChild(createDataItem('Email', user.email, emailStatus));
+            } else {
+                emailInfo.appendChild(createDataItem('Email', 'Not provided'));
+            }
+
+            // Phone Info
+            const phoneInfo = document.getElementById('phoneInfo');
+            phoneInfo.innerHTML = '<h3>📱 Phone Information</h3>';
+            
+            if (user.phoneNumber) {
+                phoneInfo.appendChild(createDataItem('Phone Number', user.phoneNumber));
+                phoneInfo.appendChild(createDataItem('Phone Verification Status', 'Unknown (Firebase doesn\'t expose this)', 'unknown'));
+            } else {
+                phoneInfo.appendChild(createDataItem('Phone Number', 'Not provided'));
+                phoneInfo.appendChild(createDataItem('Phone Verification Status', 'N/A'));
+            }
+
+            // Provider Info
+            const providerInfo = document.getElementById('providerInfo');
+            providerInfo.innerHTML = '<h3>🔗 Provider Information</h3>';
+            
+            if (user.providerData && user.providerData.length > 0) {
+                user.providerData.forEach((provider, index) => {
+                    providerInfo.appendChild(createDataItem(`Provider ${index + 1}`, provider.providerId));
+                    if (provider.email) {
+                        providerInfo.appendChild(createDataItem(`Provider ${index + 1} Email`, provider.email));
+                    }
+                    if (provider.phoneNumber) {
+                        providerInfo.appendChild(createDataItem(`Provider ${index + 1} Phone`, provider.phoneNumber));
+                    }
+                });
+            } else {
+                providerInfo.appendChild(createDataItem('Linked Providers', 'None'));
+            }
+
+            // Raw Data
+            const rawData = document.getElementById('rawData');
+            rawData.innerHTML = '<h3>🔍 Raw Data</h3>';
+            rawData.appendChild(createDataItem('User Object', JSON.stringify(user, null, 2)));
+            if (user.providerData) {
+                rawData.appendChild(createDataItem('Provider Data', JSON.stringify(user.providerData, null, 2)));
+            }
+
+            // Summary
+            const summaryInfo = document.getElementById('summaryInfo');
+            summaryInfo.innerHTML = '<h3>📋 Summary & Trust Analysis</h3>';
+            
+            let emailTrust = '❓ Unknown';
+            if (user.email) {
+                if (user.emailVerified === true) {
+                    emailTrust = '✅ Trusted (Verified by Firebase)';
+                } else if (user.emailVerified === false) {
+                    emailTrust = '❌ Not Trusted (Not verified)';
+                } else {
+                    emailTrust = '⚠️ Partially Trusted (Email present but verification status unknown)';
+                }
+            } else {
+                emailTrust = '❌ Not Available';
+            }
+
+            let phoneTrust = '❓ Unknown';
+            if (user.phoneNumber) {
+                phoneTrust = '⚠️ Partially Trusted (Phone present but verification status not exposed by Firebase)';
+            } else {
+                phoneTrust = '❌ Not Available';
+            }
+
+            let providerTrust = '❓ Unknown';
+            if (user.providerData && user.providerData.length > 0) {
+                const primaryProvider = user.providerData[0].providerId;
+                if (primaryProvider === 'google.com') {
+                    providerTrust = '✅ High Trust (Google verifies email and phone)';
+                } else if (primaryProvider === 'apple.com') {
+                    providerTrust = '✅ High Trust (Apple verifies email)';
+                } else if (primaryProvider === 'line.com') {
+                    providerTrust = '⚠️ Medium Trust (LINE provides email but verification status unclear)';
+                } else {
+                    providerTrust = '⚠️ Medium Trust (Provider verification varies)';
+                }
+            }
+
+            summaryInfo.appendChild(createDataItem('Email Trust Level', emailTrust));
+            summaryInfo.appendChild(createDataItem('Phone Trust Level', phoneTrust));
+            summaryInfo.appendChild(createDataItem('Provider Trust Level', providerTrust));
+        }
+
+        function displayLineData(lineUser, lineProfile, idTokenData) {
+            const dataDisplay = document.getElementById('dataDisplay');
+            dataDisplay.style.display = 'block';
+
+            // Basic Info
+            const basicInfo = document.getElementById('basicInfo');
+            basicInfo.innerHTML = '<h3>👤 Basic Information (LINE)</h3>';
+            basicInfo.appendChild(createDataItem('UID', lineUser.uid));
+            basicInfo.appendChild(createDataItem('Display Name', lineUser.displayName));
+            basicInfo.appendChild(createDataItem('Provider', 'LINE'));
+
+            // Email Info
+            const emailInfo = document.getElementById('emailInfo');
+            emailInfo.innerHTML = '<h3>📧 Email Information (LINE)</h3>';
+            
+            if (lineUser.email) {
+                emailInfo.appendChild(createDataItem('Email', lineUser.email, 'unknown'));
+                emailInfo.appendChild(createDataItem('Email Verification Note', 'LINE doesn\'t expose email verification status'));
+            } else {
+                emailInfo.appendChild(createDataItem('Email', 'Not provided'));
+            }
+
+            // Phone Info
+            const phoneInfo = document.getElementById('phoneInfo');
+            phoneInfo.innerHTML = '<h3>📱 Phone Information (LINE)</h3>';
+            phoneInfo.appendChild(createDataItem('Phone Number', 'Not provided by LINE'));
+            phoneInfo.appendChild(createDataItem('Phone Verification Status', 'N/A'));
+
+            // Provider Info
+            const providerInfo = document.getElementById('providerInfo');
+            providerInfo.innerHTML = '<h3>🔗 Provider Information (LINE)</h3>';
+            providerInfo.appendChild(createDataItem('LINE User ID', lineProfile.userId));
+            providerInfo.appendChild(createDataItem('LINE Display Name', lineProfile.displayName));
+            if (lineProfile.statusMessage) {
+                providerInfo.appendChild(createDataItem('LINE Status Message', lineProfile.statusMessage));
+            }
+
+            // Raw Data
+            const rawData = document.getElementById('rawData');
+            rawData.innerHTML = '<h3>🔍 Raw Data (LINE)</h3>';
+            rawData.appendChild(createDataItem('LINE User Object', JSON.stringify(lineUser, null, 2)));
+            rawData.appendChild(createDataItem('LINE Profile', JSON.stringify(lineProfile, null, 2)));
+            rawData.appendChild(createDataItem('LINE ID Token Data', JSON.stringify(idTokenData, null, 2)));
+
+            // Summary
+            const summaryInfo = document.getElementById('summaryInfo');
+            summaryInfo.innerHTML = '<h3>📋 Summary & Trust Analysis (LINE)</h3>';
+            
+            let emailTrust = '❓ Unknown';
+            if (lineUser.email) {
+                emailTrust = '⚠️ Partially Trusted (Email present but verification status not provided by LINE)';
+            } else {
+                emailTrust = '❌ Not Available';
+            }
+
+            let phoneTrust = '❌ Not Available (LINE doesn\'t provide phone numbers)';
+            let providerTrust = '⚠️ Medium Trust (LINE provides email but verification status unclear)';
+
+            summaryInfo.appendChild(createDataItem('Email Trust Level', emailTrust));
+            summaryInfo.appendChild(createDataItem('Phone Trust Level', phoneTrust));
+            summaryInfo.appendChild(createDataItem('Provider Trust Level', providerTrust));
+        }
+
+        // Event Listeners
+        document.getElementById('googleBtn').addEventListener('click', async () => {
+            try {
+                console.log('🔑 Testing Google login...');
+                const result = await signInWithPopup(auth, googleProvider);
+                console.log('✅ Google login successful:', result.user);
+                displayUserData(result.user, 'Google');
+            } catch (error) {
+                console.error('❌ Google login error:', error);
+                alert(`Google login failed: ${error.message}`);
+            }
+        });
+
+        document.getElementById('appleBtn').addEventListener('click', async () => {
+            try {
+                console.log('🍎 Testing Apple login...');
+                const result = await signInWithPopup(auth, appleProvider);
+                console.log('✅ Apple login successful:', result.user);
+                displayUserData(result.user, 'Apple');
+            } catch (error) {
+                console.error('❌ Apple login error:', error);
+                alert(`Apple login failed: ${error.message}`);
+            }
+        });
+
+        document.getElementById('lineBtn').addEventListener('click', async () => {
+            try {
+                console.log('🟩 Testing LINE login...');
+                
+                const response = await fetch(`${FUNCTIONS_BASE_URL}/getLineAuthUrlHttp`);
+                const authData = await response.json();
+
+                if (!authData.success) {
+                    throw new Error(authData.error || 'Failed to get LINE authorization URL');
+                }
+
+                localStorage.setItem('lineAuthState', authData.state);
+                localStorage.setItem('lineAuthTimestamp', Date.now().toString());
+
+                window.location.href = authData.authUrl;
+            } catch (error) {
+                console.error('❌ LINE login error:', error);
+                alert(`LINE login failed: ${error.message}`);
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await auth.signOut();
+                localStorage.removeItem('lineProfile');
+                localStorage.removeItem('lineIdTokenData');
+                localStorage.removeItem('lineUser');
+                localStorage.removeItem('lineIdToken');
+                
+                document.getElementById('dataDisplay').style.display = 'none';
+                console.log('✅ User signed out successfully');
+            } catch (error) {
+                console.error('❌ Logout error:', error);
+            }
+        });
+
+        // Check for LINE callback
+        const urlParams = new URLSearchParams(window.location.search);
+        const lineCode = urlParams.get('code');
+        const lineState = urlParams.get('state');
+
+        if (lineCode && lineState) {
+            async function processLineCallback() {
+                try {
+                    const response = await fetch(`${FUNCTIONS_BASE_URL}/processLineCallbackHttp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: lineCode, state: lineState }),
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        displayLineData(data.user, data.lineProfile, data.idTokenData);
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                } catch (error) {
+                    console.error('Error processing LINE callback:', error);
+                    alert(`LINE login failed: ${error.message}`);
+                }
+            }
+            processLineCallback();
+        }
+
+        // Check for existing LINE session
+        const lineUser = localStorage.getItem('lineUser');
+        const lineProfile = localStorage.getItem('lineProfile');
+        const lineIdTokenData = localStorage.getItem('lineIdTokenData');
+
+        if (lineUser && lineProfile && lineIdTokenData) {
+            displayLineData(
+                JSON.parse(lineUser),
+                JSON.parse(lineProfile),
+                JSON.parse(lineIdTokenData)
+            );
+        }
+
+        // Auth state listener
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log('Firebase user detected:', user);
+                displayUserData(user, 'Firebase');
+            }
+        });
+    </script>
+</body>
+</html> 
