@@ -1,0 +1,63 @@
+name: firebase_auth_flutter
+description: Flutter app สำหรับ Firebase Authentication พร้อม Google, Apple และ LINE Sign In
+
+# เวอร์ชันของแอป
+version: 1.0.0+1
+
+# เวอร์ชัน Flutter ที่รองรับ
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+# Dependencies ที่จำเป็นสำหรับการพัฒนา
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase packages
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  
+  # Google Sign In
+  google_sign_in: ^6.1.6
+  
+  # Apple Sign In
+  sign_in_with_apple: ^5.0.0
+  
+  # HTTP requests สำหรับ LINE Login
+  http: ^1.1.0
+  
+  # URL launcher สำหรับเปิด browser
+  url_launcher: ^6.2.2
+  
+  # Shared preferences สำหรับเก็บข้อมูล
+  shared_preferences: ^2.2.2
+
+  # UI packages
+  cupertino_icons: ^1.0.2
+
+# Dependencies สำหรับการพัฒนา (dev dependencies)
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  # Linting และ formatting
+  flutter_lints: ^3.0.0
+
+# การตั้งค่า Flutter
+flutter:
+  # Material Design icons
+  uses-material-design: true
+  
+  # Assets (รูปภาพ, fonts, etc.)
+  # assets:
+  #   - images/
+  #   - fonts/
+  
+  # Custom fonts (ถ้ามี)
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic 
