@@ -6,7 +6,17 @@ const admin = require("firebase-admin");
 const axios = require("axios");
 
 // เริ่มต้น Firebase Admin SDK
-admin.initializeApp();
+// สำหรับ Emulator ให้ใช้ service account key
+if (process.env.FUNCTIONS_EMULATOR) {
+  // รันใน Emulator
+  const serviceAccount = require("../serviceAccountKey.json");
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+} else {
+  // รันใน Production
+  admin.initializeApp();
+}
 
 // ตั้งค่า global options สำหรับ functions ทั้งหมด
 setGlobalOptions({
@@ -67,25 +77,10 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
     console.log("sub:", sub);
     console.log("email:", email);
 
-    // ตรวจสอบข้อมูลที่จำเป็น
     if (!accessToken) {
       return response.status(400).json({
         success: false,
-        error: "ต้องการ LINE access token",
-      });
-    }
-
-    if (!email) {
-      return response.status(400).json({
-        success: false,
-        error: "ต้องการอีเมล",
-      });
-    }
-
-    if (!sub) {
-      return response.status(400).json({
-        success: false,
-        error: "ต้องการ LINE user ID (sub)",
+        error: "Access token is required",
       });
     }
 
@@ -110,7 +105,6 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
 
       let uid;
       let customToken = "";
-
       // Logic Check User FireBase
       try {
         // Check if user already exists with this email
@@ -131,7 +125,7 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
           uid = sub;
           await admin.auth().createUser({
             uid: uid,
-            displayName: "",
+            // displayName: "",
             email: email,
             // photoURL: verifyData.picture, // Uncomment if you have picture URL
           });
@@ -142,9 +136,7 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
         }
       }
 
-      // สร้าง custom token
-      customToken = await admin.auth().createCustomToken(uid);
-      console.log("สร้าง custom token สำเร็จ");
+      console.log(`🔗 User UID: ${uid}`);
 
       response.json({
         success: true,
@@ -178,7 +170,7 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
         timestamp: new Date().toISOString(),
       });
     } else {
-      // ข้อผิดพลาดเครือข่ายหรืออื่นๆ
+      // Network or other error
       response.status(500).json({
         success: false,
         error: "Token verification failed",
