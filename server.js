@@ -34,9 +34,9 @@ app.get('/api/health', (req, res) => {
 
 // LINE Login Configuration
 const LINE_CONFIG = {
-  CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
-  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
-  REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://127.0.0.1:5500/index.html"
+  CHANNEL_ID: "2007733529",
+  CHANNEL_SECRET: "4e3197d83a8d9836ae5794fda50b698a",
+  REDIRECT_URI: "http://127.0.0.1:5500/index.html"
 };
 
 
@@ -898,6 +898,124 @@ app.post('/api/auth/line/verify', async (req, res) => {
 });
 
 /**
+ * LINE Login - Verify Access Token (GET endpoint)
+ * GET https://api.line.me/oauth2/v2.1/verify?access_token=${accessToken}
+ */
+app.post('/api/auth/line/verify-token', async (req, res) => {
+  try {
+    const { accessToken, sub, email } = req.body;
+    console.log("accessToken:", accessToken);
+    console.log("sub:", sub);
+    console.log("email:", email);
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        error: "Access token is required"
+      });
+    }
+
+    console.log(`🔍 Verifying LINE access token: ${accessToken.substring(0, 20)}...`);
+
+    // Verify token with LINE API using GET method
+    const verifyResponse = await axios.get(`https://api.line.me/oauth2/v2.1/verify?access_token=${accessToken}`);
+    // VerifyLine Client
+    const verifyData = verifyResponse.data;
+    console.log(`✅ LINE token verification successful:`, {
+      clientId: verifyData.client_id,
+      expiresIn: verifyData.expires_in,
+      scope: verifyData.scope
+    });
+
+    // Check if the client ID matches our LINE channel
+    if (verifyData.client_id == LINE_CONFIG.CHANNEL_ID) {
+      console.log("✅ LINE channel ID verified successfully");
+      
+      // Get user email from LINE service (this should come from your actual service)
+      // const emailTest = "suwijuk@mfec.co.th"; // ควรได้จาก request service จริง
+      
+      let uid;
+      let userRecord;
+      let customToken = "";
+      // Logic Check User FireBase 
+      try {
+        // Check if user already exists with this email
+        const existingUser = await admin.auth().getUserByEmail(email);
+        console.log("✅ Found existing user:", existingUser.uid);
+        uid = existingUser.uid; // Use existing UID to link account
+
+        // ใช้ uid สร้าง custom token
+        customToken = await admin.auth().createCustomToken(uid);
+        console.log("✅ Custom token created:", customToken);
+
+      } catch (err) {
+        if (err.code === 'auth/user-not-found') {
+          console.log(`ℹ️ User with email ${email} not found, creating new user`);
+          
+          // Create new user with LINE sub as UID
+          // const sub = "U0790667d818d612bb8fb8af91e30db8a";
+          // uid = sub;
+          const uid = sub;
+          userRecord = await admin.auth().createUser({
+            uid: uid,
+            displayName: '',
+            email: email,
+            // photoURL: verifyData.picture, // Uncomment if you have picture URL
+          });
+          customToken = await admin.auth().createCustomToken(uid);
+          console.log(`✅ Created new user with UID: ${uid}`);
+        } else {
+          throw err;
+        }
+      }
+
+      console.log(`🔗 User UID: ${uid}`);
+
+      res.json({
+        success: true,
+        // message: "LINE access token verified successfully",
+        // verificationData: verifyData,
+        // userUid: uid,
+        customToken: customToken,
+        // timestamp: new Date().toISOString()
+      });
+      
+    } else {
+      console.log("❌ Invalid LINE channel ID");
+      return res.status(400).json({
+        success: false,
+        error: "Invalid LINE channel ID"
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ LINE token verification error:", error);
+    
+    if (error.response) {
+      // LINE API returned an error response
+      console.error("LINE API error response:", {
+        status: error.response.status,
+        data: error.response.data
+      });
+      
+      res.status(error.response.status).json({
+        success: false,
+        error: "LINE token verification failed",
+        details: error.response.data,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      // Network or other error
+      res.status(500).json({
+        success: false,
+        error: "Token verification failed",
+        details: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+});
+
+/**
  * LINE Login - Link Account
  * สำหรับเชื่อมต่อ LINE account กับ Firebase account ที่มีอยู่แล้ว
  */
@@ -1051,6 +1169,109 @@ app.post('/api/auth/line/link-account', async (req, res) => {
 });
 
 /**
+ * LINE Login - Process Login with Access Token (Converted from Firebase Function)
+ * This endpoint processes LINE login using access token directly
+ */
+app.post('/api/auth/line/process-login', async (req, res) => {
+  try {
+    console.log("Request body:", req.body);
+    console.log("Request headers:", req.headers);
+
+    const { accessToken, displayName, pictureUrl, email, sub } = req.body;
+
+    if (!accessToken) {
+      console.error("Missing access token");
+      return res.status(400).json({
+        success: false,
+        error: "LINE access token is required",
+      });
+    }
+
+    console.log("Processing LINE login with access token:", accessToken.substring(0, 20) + "...");
+
+    // 1. Verify LINE access token
+    const accessTokenData = await verifyLineAccessToken(accessToken);
+    
+    if (accessTokenData.client_id !== LINE_CONFIG.CHANNEL_ID) {
+      console.error("Invalid LINE channel ID");
+      return res.status(400).json({
+        success: false,
+        error: "Invalid LINE channel ID",
+      });
+    }
+
+    console.log("Verified LINE access token for user:", accessTokenData.client_id);
+
+    // 2. Get LINE profile using access token
+    const lineProfile = await getLineProfile(accessToken);
+    console.log("Got LINE profile:", lineProfile.displayName);
+
+    // 3. Use provided data or fallback to LINE profile data
+    const lineEmail = email || accessTokenData.email || lineProfile.email;
+    const lineDisplayName = displayName || lineProfile.displayName;
+    const linePictureUrl = pictureUrl || lineProfile.pictureUrl;
+
+    if (!lineEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Email is required for Firebase authentication",
+      });
+    }
+
+    // 4. Create or update Firebase user
+    const firebaseUid = await createOrUpdateFirebaseUser(lineEmail, lineDisplayName, linePictureUrl);
+    console.log("Firebase UID:", firebaseUid);
+    console.log("Firebase Email:", lineEmail);
+    console.log("Firebase Display Name:", lineDisplayName);
+    console.log("Firebase Picture URL:", linePictureUrl);
+
+    // 5. Create Firebase ID Token (JWT) with custom claims
+    const idToken = await admin.auth().createCustomToken(firebaseUid, {
+      email: lineEmail,
+      displayName: lineDisplayName,
+      pictureUrl: linePictureUrl,
+      provider: "line",
+      lineId: lineProfile.userId,
+    });
+
+    // Log Firebase auth token for debugging
+    console.log("=== Firebase Auth Token Generated ===");
+    console.log("ID Token (JWT):", idToken);
+    console.log("Token Length:", idToken.length);
+    console.log("Token Preview:", idToken.substring(0, 50) + "...");
+    console.log("User UID:", firebaseUid);
+    console.log("User Email:", lineEmail);
+    console.log("User Display Name:", lineDisplayName);
+    console.log("=====================================");
+
+    // 6. Return Firebase ID Token (JWT)
+    res.json({
+      success: true,
+      firebaseToken: idToken, // นี่คือ JWT ที่สามารถถอดรหัสได้
+      user: {
+        uid: firebaseUid,
+        email: lineEmail,
+        displayName: lineDisplayName,
+        photoURL: linePictureUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Error processing LINE login:", error);
+    console.error("Error details:", {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      response: error.response && error.response.data,
+    });
+    res.status(500).json({
+      success: false,
+      error: `LINE login failed: ${error.message}`,
+      details: (error.response && error.response.data) || error.stack,
+    });
+  }
+});
+
+/**
  * LINE Login - Logout
  */
 app.post('/api/auth/line/logout', async (req, res) => {
@@ -1122,6 +1343,73 @@ app.get('/api/auth/line/callback', async (req, res) => {
 // Helper Functions for LINE Login
 
 /**
+ * Helper function to verify LINE access token
+ * @param {string} accessToken - LINE access token to verify
+ * @return {Promise<Object>} Verified token data
+ */
+async function verifyLineAccessToken(accessToken) {
+  // เรียก API /verify ของ LINE เพื่อเช็คว่า access_token ถูกต้องและยังไม่หมดอายุ
+  const verifyResponse = await axios.get(
+    `https://api.line.me/oauth2/v2.1/verify?access_token=${accessToken}`,
+  );
+  return verifyResponse.data;
+}
+
+/**
+ * Helper function to get LINE profile
+ * @param {string} accessToken - LINE access token
+ * @return {Promise<Object>} LINE profile data
+ */
+async function getLineProfile(accessToken) {
+  const profileResponse = await axios.get('https://api.line.me/v2/profile', {
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  return profileResponse.data;
+}
+
+// /**
+//  * Helper function to create or update Firebase user
+//  * @param {string} lineEmail - User email from LINE
+//  * @param {string} lineDisplayName - User display name from LINE
+//  * @param {string} linePictureUrl - User picture URL from LINE
+//  * @return {Promise<string>} Firebase user UID
+//  */
+// async function createOrUpdateFirebaseUser(lineEmail, lineDisplayName, linePictureUrl) {
+//   let firebaseUid;
+
+//   try {
+//     // Check if user exists
+//     const userRecord = await admin.auth().getUserByEmail(lineEmail);
+//     firebaseUid = userRecord.uid;
+
+//     // Update user data
+//     await admin.auth().updateUser(firebaseUid, {
+//       displayName: lineDisplayName,
+//       photoURL: linePictureUrl,
+//     });
+//   } catch (error) {
+//     if (error.code === "auth/user-not-found") {
+//       // Create new user
+//       console.log(`Creating new user for email: ${lineEmail}`);
+//       const newUser = await admin.auth().createUser({
+//         email: lineEmail,
+//         emailVerified: true,
+//         displayName: lineDisplayName,
+//         photoURL: linePictureUrl,
+//       });
+//       firebaseUid = newUser.uid;
+//     } else {
+//       throw error;
+//     }
+//   }
+
+//   return firebaseUid;
+// }
+
+/**
  * Helper function to get user info by Firebase UID
  * @param {string} uid - Firebase user UID
  * @returns {Object} User information
@@ -1145,6 +1433,21 @@ async function getUserInfoByUid(uid) {
   }
 }
 
+/**
+ * Helper function to verify LINE ID token
+ * @param {string} idToken - LINE ID token to verify
+ * @returns {Promise<Object>} Verified token data with profile { sub, name, picture, email, ... }
+ */
+async function verifyLineIdToken(idToken) {
+  const res = await fetch('https://api.line.me/oauth2/v2.1/verify?access_token=' + idToken, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+
+  if (!res.ok) throw new Error('Invalid LINE token');
+  return res.json(); // คืน profile { sub, name, picture, email, ... }
+}
+
 
 
 // Start server
@@ -1160,7 +1463,9 @@ app.listen(PORT, () => {
   console.log(`🟩 LINE Login endpoints:`);
   console.log(`   GET  /api/auth/line/auth-url - Get LINE authorization URL`);
   console.log(`   POST /api/auth/line/login - Exchange code for token`);
+  console.log(`   POST /api/auth/line/process-login - Process LINE login with access token (from Firebase Function)`);
   console.log(`   POST /api/auth/line/verify - Verify LINE token`);
+  console.log(`   GET  /api/auth/line/verify-token/:accessToken - Verify LINE access token (GET)`);
   console.log(`   POST /api/auth/line/logout - LINE logout`);
   console.log(`   GET  /api/auth/line/callback - LINE callback handler`);
   console.log(`🔄 Firebase sync endpoints:`);

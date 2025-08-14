@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cloud Function</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h2>Test LINE Login Cloud Function</h2>
+    
+    <div>
+        <label>Function URL:</label><br>
+        <input type="text" id="functionUrl" value="https://asia-southeast1-traveltech-f0674.cloudfunctions.net/processLineLogin" style="width: 500px;" readonly><br><br>
+        
+        <label>Access Token:</label><br>
+        <input type="text" id="accessToken" placeholder="LINE Access Token" style="width: 400px;"><br><br>
+        
+        <label>Display Name:</label><br>
+        <input type="text" id="displayName" placeholder="Display Name" value="Test User"><br><br>
+        
+        <label>Picture URL:</label><br>
+        <input type="text" id="pictureUrl" placeholder="Picture URL" value="https://example.com/photo.jpg"><br><br>
+        
+        <label>Email:</label><br>
+        <input type="text" id="email" placeholder="Email" value="test@example.com"><br><br>
+        
+        <button onclick="testFunction()">Test Function</button>
+        <button onclick="checkFunctionStatus()">Check Function Status</button>
+    </div>
+    
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; min-height: 100px;">
+        <strong>Result will appear here...</strong>
+    </div>
+
+    <script>
+        async function checkFunctionStatus() {
+            const url = document.getElementById('functionUrl').value;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'OPTIONS'
+                });
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>Function Status Check:</h3>
+                    <p>Status: ${response.status}</p>
+                    <p>Function is accessible!</p>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <h3>Function Status Check Failed:</h3>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        }
+
+        async function testFunction() {
+            const url = document.getElementById('functionUrl').value;
+            const accessToken = document.getElementById('accessToken').value;
+            const displayName = document.getElementById('displayName').value;
+            const pictureUrl = document.getElementById('pictureUrl').value;
+            const email = document.getElementById('email').value;
+            
+            if (!accessToken) {
+                alert('Please enter LINE Access Token');
+                return;
+            }
+            
+            const testData = {
+                accessToken,
+                displayName,
+                pictureUrl,
+                email
+            };
+            
+            document.getElementById('result').innerHTML = '<strong>Testing function...</strong>';
+            
+            try {
+                console.log('Sending request to:', url);
+                console.log('Request data:', testData);
+                
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                console.log('Response status:', response.status);
+                
+                const result = await response.json();
+                console.log('Response data:', result);
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>Response (Status: ${response.status}):</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                    ${result.success ? `
+                        <h4>Firebase Token:</h4>
+                        <textarea style="width: 100%; height: 60px;">${result.firebaseToken}</textarea>
+                    ` : ''}
+                `;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                document.getElementById('result').innerHTML = `
+                    <h3>Error:</h3>
+                    <p>Error: ${error.message}</p>
+                    <hr>
+                    <p><strong>Note:</strong> Make sure you have a valid LINE access token</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
