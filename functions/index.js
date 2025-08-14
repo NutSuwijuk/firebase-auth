@@ -21,7 +21,7 @@ if (process.env.FUNCTIONS_EMULATOR) {
 // ตั้งค่า global options สำหรับ functions ทั้งหมด
 setGlobalOptions({
   region: "asia-southeast1",
-  maxInstances: 5,
+  // maxInstances: 5,
 });
 
 // การตั้งค่า LINE OAuth
@@ -79,8 +79,10 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
 
     if (!accessToken) {
       return response.status(400).json({
-        success: false,
-        error: "Access token is required",
+        status: false,
+        code: "MISSING_TOKEN",
+        message: "Access token is required",
+        data: null,
       });
     }
 
@@ -104,24 +106,17 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
       // const emailTest = "suwijuk@mfec.co.th"; // ควรได้จาก request service จริง
 
       let uid;
-      let customToken = "";
       // Logic Check User FireBase
       try {
         // Check if user already exists with this email
         const existingUser = await admin.auth().getUserByEmail(email);
         console.log("✅ Found existing user:", existingUser.uid);
         uid = existingUser.uid; // Use existing UID to link account
-
-        // ใช้ uid สร้าง custom token
-        customToken = await admin.auth().createCustomToken(uid);
-        console.log("✅ Custom token created:", customToken);
       } catch (err) {
         if (err.code === "auth/user-not-found") {
           console.log(`ℹ️ User with email ${email} not found, creating new user`);
 
           // Create new user with LINE sub as UID
-          // const sub = "U0790667d818d612bb8fb8af91e30db8a";
-          // uid = sub;
           uid = sub;
           await admin.auth().createUser({
             uid: uid,
@@ -129,28 +124,63 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
             email: email,
             // photoURL: verifyData.picture, // Uncomment if you have picture URL
           });
-          customToken = await admin.auth().createCustomToken(uid);
           console.log(`✅ Created new user with UID: ${uid}`);
         } else {
           throw err;
         }
       }
 
+      // สร้าง custom token หลังจากได้ uid แล้ว (เรียกที่เดียว)
       console.log(`🔗 User UID: ${uid}`);
+      const customToken = await admin.auth().createCustomToken(uid);
+      console.log("✅ Custom token created:", customToken);
+
+      // แลก Custom Token เป็น ID Token ผ่าน REST API
+      console.log("🔄 Exchanging custom token for ID token...");
+      const idTokenResponse = await fetch(
+        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=" +
+          "AIzaSyC4pMv-UMVU4hqkSV-FaEiA1Z0txFo9j0I",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: customToken,
+            returnSecureToken: true,
+          }),
+        },
+      );
+
+      if (!idTokenResponse.ok) {
+        throw new Error(`Failed to exchange custom token: ${idTokenResponse.statusText}`);
+      }
+
+      const idTokenData = await idTokenResponse.json();
+      console.log("✅ ID token exchange successful");
+
+      // ตรวจสอบว่าได้ idToken หรือไม่
+      if (!idTokenData.idToken) {
+        throw new Error("ID token not received from Firebase");
+      }
 
       response.json({
-        success: true,
-        // message: "LINE access token verified successfully",
-        // verificationData: verifyData,
-        // userUid: uid,
-        customToken: customToken,
-        // timestamp: new Date().toISOString()
+        status: true,
+        code: "SUCCESS",
+        message: "Success",
+        data: {
+          // custom_token: customToken,
+          id_token: idTokenData.idToken,
+          // refresh_token: idTokenData.refreshToken,
+          // expires_in: idTokenData.expiresIn,
+          // user_uid: uid,
+        },
       });
     } else {
       console.log("❌ Invalid LINE channel ID");
       return response.status(400).json({
-        success: false,
-        error: "Invalid LINE channel ID",
+        status: false,
+        code: "INVALID_CHANNEL",
+        message: "Invalid LINE channel ID",
+        data: null,
       });
     }
   } catch (error) {
@@ -164,18 +194,18 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
       });
 
       response.status(error.response.status).json({
-        success: false,
-        error: "LINE token verification failed",
-        details: error.response.data,
-        timestamp: new Date().toISOString(),
+        status: false,
+        code: "LINE_VERIFICATION_FAILED",
+        message: "LINE token verification failed",
+        data: null,
       });
     } else {
       // Network or other error
       response.status(500).json({
-        success: false,
-        error: "Token verification failed",
-        details: error.message,
-        timestamp: new Date().toISOString(),
+        status: false,
+        code: "VERIFICATION_FAILED",
+        message: "Token verification failed",
+        data: null,
       });
     }
   }
