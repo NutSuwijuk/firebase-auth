@@ -5,26 +5,22 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 const axios = require("axios");
 
-// เริ่มต้น Firebase Admin SDK
-// สำหรับ Emulator ให้ใช้ service account key
+// Initialize Firebase Admin SDK
 if (process.env.FUNCTIONS_EMULATOR) {
-  // รันใน Emulator
   const serviceAccount = require("../serviceAccountKey.json");
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
 } else {
-  // รันใน Production
   admin.initializeApp();
 }
 
-// ตั้งค่า global options สำหรับ functions ทั้งหมด
+// Global options
 setGlobalOptions({
   region: "asia-southeast1",
-  // maxInstances: 5,
 });
 
-// การตั้งค่า LINE OAuth
+// LINE OAuth Configuration
 const LINE_CONFIG = {
   CHANNEL_ID: "2007733529",
   CHANNEL_SECRET: "4e3197d83a8d9836ae5794fda50b698a",
@@ -32,10 +28,19 @@ const LINE_CONFIG = {
 };
 
 /**
- * จัดการ CORS headers
- * @param {Object} request - Express request object
- * @param {Object} response - Express response object
- * @return {boolean} True ถ้า origin อนุญาต
+ * Send standardized response
+ */
+function sendResponse(response, status, code, message, data = null) {
+  return response.status(status).json({
+    status: status < 400,
+    code,
+    message,
+    data,
+  });
+}
+
+/**
+ * Handle CORS headers
  */
 function handleCORS(request, response) {
   const origin = request.headers.origin;
@@ -58,17 +63,16 @@ function handleCORS(request, response) {
 
   if (request.method === "OPTIONS") {
     response.status(204).send("");
-    return false; // Preflight request handled
+    return false;
   }
 
   return true;
 }
 
-// ฟังก์ชัน LINE Login
+// LINE Login Function
 exports.verifyLineLogin = onRequest(async (request, response) => {
-  // จัดการ CORS
   if (!handleCORS(request, response)) {
-    return; // Preflight request handled
+    return;
   }
 
   try {
@@ -78,20 +82,15 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
     console.log("email:", email);
 
     if (!accessToken) {
-      return response.status(400).json({
-        status: false,
-        code: "MISSING_TOKEN",
-        message: "Access token is required",
-        data: null,
-      });
+      return sendResponse(response, 400, "MISSING_TOKEN", "Access token is required");
     }
 
     console.log(`🔍 Verifying LINE access token: ${accessToken.substring(0, 20)}...`);
 
-    // Verify token with LINE API using GET method
+    // Verify token with LINE API
     const verifyResponse = await axios.get(`https://api.line.me/oauth2/v2.1/verify?access_token=${accessToken}`);
-    // VerifyLine Client
     const verifyData = verifyResponse.data;
+    
     console.log("✅ LINE token verification successful:", {
       clientId: verifyData.client_id,
       expiresIn: verifyData.expires_in,
@@ -102,27 +101,20 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
     if (verifyData.client_id == LINE_CONFIG.CHANNEL_ID) {
       console.log("✅ LINE channel ID verified successfully");
 
-      // Get user email from LINE service (this should come from your actual service)
-      // const emailTest = "suwijuk@mfec.co.th"; // ควรได้จาก request service จริง
-
       let uid;
-      // Logic Check User FireBase
+      
+      // Check if user exists or create new one
       try {
-        // Check if user already exists with this email
         const existingUser = await admin.auth().getUserByEmail(email);
         console.log("✅ Found existing user:", existingUser.uid);
-        uid = existingUser.uid; // Use existing UID to link account
+        uid = existingUser.uid;
       } catch (err) {
         if (err.code === "auth/user-not-found") {
           console.log(`ℹ️ User with email ${email} not found, creating new user`);
-
-          // Create new user with LINE sub as UID
           uid = sub;
           await admin.auth().createUser({
             uid: uid,
-            // displayName: "",
             email: email,
-            // photoURL: verifyData.picture, // Uncomment if you have picture URL
           });
           console.log(`✅ Created new user with UID: ${uid}`);
         } else {
@@ -130,12 +122,12 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
         }
       }
 
-      // สร้าง custom token หลังจากได้ uid แล้ว (เรียกที่เดียว)
+      // Create custom token
       console.log(`🔗 User UID: ${uid}`);
       const customToken = await admin.auth().createCustomToken(uid);
       console.log("✅ Custom token created:", customToken);
 
-      // แลก Custom Token เป็น ID Token ผ่าน REST API
+      // Exchange custom token for ID token
       console.log("🔄 Exchanging custom token for ID token...");
       const idTokenResponse = await fetch(
         "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=" +
@@ -157,56 +149,29 @@ exports.verifyLineLogin = onRequest(async (request, response) => {
       const idTokenData = await idTokenResponse.json();
       console.log("✅ ID token exchange successful");
 
-      // ตรวจสอบว่าได้ idToken หรือไม่
       if (!idTokenData.idToken) {
         throw new Error("ID token not received from Firebase");
       }
 
-      response.json({
-        status: true,
-        code: "SUCCESS",
-        message: "Success",
-        data: {
-          // custom_token: customToken,
-          id_token: idTokenData.idToken,
-          // refresh_token: idTokenData.refreshToken,
-          // expires_in: idTokenData.expiresIn,
-          // user_uid: uid,
-        },
+      sendResponse(response, 200, "SUCCESS", "Success", {
+        id_token: idTokenData.idToken,
       });
     } else {
       console.log("❌ Invalid LINE channel ID");
-      return response.status(400).json({
-        status: false,
-        code: "INVALID_CHANNEL",
-        message: "Invalid LINE channel ID",
-        data: null,
-      });
+      return sendResponse(response, 400, "INVALID_CHANNEL", "Invalid LINE channel ID");
     }
   } catch (error) {
     console.error("❌ LINE token verification error:", error);
 
     if (error.response) {
-      // LINE API returned an error response
       console.error("LINE API error response:", {
         status: error.response.status,
         data: error.response.data,
       });
 
-      response.status(error.response.status).json({
-        status: false,
-        code: "LINE_VERIFICATION_FAILED",
-        message: "LINE token verification failed",
-        data: null,
-      });
+      sendResponse(response, error.response.status, "LINE_VERIFICATION_FAILED", "LINE token verification failed");
     } else {
-      // Network or other error
-      response.status(500).json({
-        status: false,
-        code: "VERIFICATION_FAILED",
-        message: "Token verification failed",
-        data: null,
-      });
+      sendResponse(response, 500, "VERIFICATION_FAILED", "Token verification failed");
     }
   }
 });
