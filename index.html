@@ -433,9 +433,8 @@
 
       // Provider status is now checked automatically on page load and auth state changes
 
-      // LINE Login Functions - Production Cloud Functions
-      const FUNCTIONS_BASE_URL =
-        "https://asia-southeast1-traveltech-f0674.cloudfunctions.net";
+      // LINE Login Functions - Local Service
+      const LOCAL_SERVICE_URL = "http://localhost:3000";
 
       // Handle Google login button click
       const googleLoginBtn = document.getElementById("googleLoginBtn");
@@ -547,9 +546,9 @@
           try {
             console.log("🟩 Starting LINE login process...");
 
-            // Get authorization URL from Cloud Functions
+            // Get authorization URL from local service
             const response = await fetch(
-              `${FUNCTIONS_BASE_URL}/getLineAuthUrlHttp`
+              `${LOCAL_SERVICE_URL}/line/auth/url`
             );
             const authData = await response.json();
 
@@ -587,7 +586,7 @@
         async function processLineCallback() {
           try {
             const response = await fetch(
-              `${FUNCTIONS_BASE_URL}/processLineCallbackHttp`,
+              `${LOCAL_SERVICE_URL}/line/auth/callback`,
               {
                 method: "POST",
                 headers: {
@@ -603,7 +602,7 @@
             const data = await response.json();
 
             if (data.success) {
-              // Store LINE data in localStorage (no Firebase Auth needed)
+              // Store LINE data in localStorage including access token
               localStorage.setItem(
                 "lineProfile",
                 JSON.stringify(data.lineProfile)
@@ -614,6 +613,11 @@
               );
               localStorage.setItem("lineUser", JSON.stringify(data.user));
               localStorage.setItem("lineIdToken", data.lineIdToken);
+              localStorage.setItem("lineAccessToken", data.accessToken);
+
+              console.log("✅ LINE login successful!");
+              console.log("Access Token:", data.accessToken);
+              console.log("User Profile:", data.lineProfile);
 
               // Clear URL parameters
               window.history.replaceState(
@@ -756,6 +760,7 @@
         // Check LINE login
         const lineUser = localStorage.getItem("lineUser");
         const lineProfile = localStorage.getItem("lineProfile");
+        const lineAccessToken = localStorage.getItem("lineAccessToken");
 
         if (lineUser && lineProfile) {
           const user = JSON.parse(lineUser);
@@ -772,6 +777,8 @@
                         <p><strong>UID:</strong> ${user.uid}</p>
                         <p><strong>Provider:</strong> LINE</p>
                         <p><strong>LINE User ID:</strong> ${profile.userId}</p>
+                        <p><strong>Access Token:</strong> <code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px; font-size: 12px;">${lineAccessToken ? lineAccessToken.substring(0, 20) + '...' : 'N/A'}</code></p>
+                        <p><strong>Full Access Token:</strong> <textarea readonly style="width: 100%; height: 60px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px;">${lineAccessToken || 'N/A'}</textarea></p>
                         ${
                           profile.pictureUrl
                             ? `<img src="${profile.pictureUrl}" alt="Profile" class="profile-pic">`
@@ -852,6 +859,7 @@
             localStorage.removeItem("lineIdTokenData");
             localStorage.removeItem("lineUser");
             localStorage.removeItem("lineIdToken");
+            localStorage.removeItem("lineAccessToken"); // Clear access token on logout
 
             console.log("✅ User signed out successfully");
 

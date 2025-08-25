@@ -1,0 +1,404 @@
+{
+  "examples": {
+    "user_with_google_line": {
+      "description": "User with Google and LINE accounts linked",
+      "response": {
+        "success": true,
+        "user": {
+          "uid": "abc123def456",
+          "email": "user@example.com",
+          "displayName": "Jarayuth Phromtha",
+          "photoURL": "https://lh3.googleusercontent.com/a/ACg8ocJ...",
+          "emailVerified": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "lastSignInAt": "2024-01-15T10:30:00.000Z"
+        },
+        "linkedAccounts": {
+          "providers": [
+            {
+              "providerId": "google.com",
+              "name": "Google",
+              "icon": "🔑",
+              "color": "#4285F4",
+              "status": "active",
+              "displayName": "Jarayuth Phromtha",
+              "email": "user@gmail.com",
+              "photoURL": "https://lh3.googleusercontent.com/a/ACg8ocJ...",
+              "uid": "123456789",
+              "linkedAt": "2024-01-01T00:00:00.000Z",
+              "isPrimary": true
+            },
+            {
+              "providerId": "line.com",
+              "name": "LINE",
+              "icon": "🟩",
+              "color": "#00C300",
+              "status": "active",
+              "displayName": "Jarayuth Phromtha",
+              "email": "user@example.com",
+              "photoURL": "https://profile.line-scdn.net/...",
+              "uid": "U0790667d818d612bb8fb8af91e30db8a",
+              "linkedAt": "2024-01-10T15:45:00.000Z",
+              "isPrimary": false,
+              "statusMessage": "Hello from LINE!"
+            }
+          ],
+          "stats": {
+            "totalLinked": 2,
+            "primaryProvider": "google.com",
+            "lastLinkedAt": "2024-01-10T15:45:00.000Z",
+            "emailVerified": true,
+            "hasMultipleProviders": true
+          },
+          "summary": {
+            "totalLinked": 2,
+            "primaryProvider": "google.com",
+            "hasMultipleProviders": true,
+            "emailVerified": true
+          }
+        },
+        "availableProviders": [
+          {
+            "providerId": "apple.com",
+            "name": "Apple",
+            "icon": "🍎",
+            "color": "#000000",
+            "status": "available",
+            "canLink": true
+          },
+          {
+            "providerId": "facebook.com",
+            "name": "Facebook",
+            "icon": "📘",
+            "color": "#1877F2",
+            "status": "available",
+            "canLink": true
+          },
+          {
+            "providerId": "github.com",
+            "name": "GitHub",
+            "icon": "🐙",
+            "color": "#333333",
+            "status": "available",
+            "canLink": true
+          }
+        ],
+        "customClaims": {
+          "hasCustomClaims": true,
+          "claims": {
+            "lineUserId": "U0790667d818d612bb8fb8af91e30db8a",
+            "lineDisplayName": "Jarayuth Phromtha",
+            "linePictureUrl": "https://profile.line-scdn.net/...",
+            "lineStatusMessage": "Hello from LINE!",
+            "lastLineSignIn": "2024-01-10T15:45:00.000Z",
+            "hasLineAccount": true,
+            "linkedProviders": ["line"],
+            "lastLinkedAt": "2024-01-10T15:45:00.000Z"
+          }
+        },
+        "metadata": {
+          "lastUpdated": "2024-01-15T10:30:00.000Z",
+          "firebaseVersion": "9.x",
+          "endpoint": "/api/auth/linked-accounts"
+        }
+      }
+    },
+    "user_with_apple_only": {
+      "description": "User with only Apple account",
+      "response": {
+        "success": true,
+        "user": {
+          "uid": "def789ghi012",
+          "email": "user@icloud.com",
+          "displayName": "Apple User",
+          "photoURL": null,
+          "emailVerified": true,
+          "createdAt": "2024-01-05T00:00:00.000Z",
+          "lastSignInAt": "2024-01-15T09:15:00.000Z"
+        },
+        "linkedAccounts": {
+          "providers": [
+            {
+              "providerId": "apple.com",
+              "name": "Apple",
+              "icon": "🍎",
+              "color": "#000000",
+              "status": "active",
+              "displayName": "Apple User",
+              "email": "user@icloud.com",
+              "photoURL": null,
+              "uid": "001234.567890abcdef.1234",
+              "linkedAt": "2024-01-05T00:00:00.000Z",
+              "isPrimary": true
+            }
+          ],
+          "stats": {
+            "totalLinked": 1,
+            "primaryProvider": "apple.com",
+            "lastLinkedAt": "2024-01-05T00:00:00.000Z",
+            "emailVerified": true,
+            "hasMultipleProviders": false
+          },
+          "summary": {
+            "totalLinked": 1,
+            "primaryProvider": "apple.com",
+            "hasMultipleProviders": false,
+            "emailVerified": true
+          }
+        },
+        "availableProviders": [
+          {
+            "providerId": "google.com",
+            "name": "Google",
+            "icon": "🔑",
+            "color": "#4285F4",
+            "status": "available",
+            "canLink": true
+          },
+          {
+            "providerId": "line.com",
+            "name": "LINE",
+            "icon": "🟩",
+            "color": "#00C300",
+            "status": "available",
+            "canLink": true
+          },
+          {
+            "providerId": "facebook.com",
+            "name": "Facebook",
+            "icon": "📘",
+            "color": "#1877F2",
+            "status": "available",
+            "canLink": true
+          }
+        ],
+        "customClaims": {
+          "hasCustomClaims": false,
+          "claims": null
+        },
+        "metadata": {
+          "lastUpdated": "2024-01-15T09:15:00.000Z",
+          "firebaseVersion": "9.x",
+          "endpoint": "/api/auth/linked-accounts"
+        }
+      }
+    },
+    "user_with_password_only": {
+      "description": "User with only email/password authentication",
+      "response": {
+        "success": true,
+        "user": {
+          "uid": "ghi345jkl678",
+          "email": "user@company.com",
+          "displayName": "Company User",
+          "photoURL": null,
+          "emailVerified": false,
+          "createdAt": "2024-01-12T00:00:00.000Z",
+          "lastSignInAt": "2024-01-15T08:30:00.000Z"
+        },
+        "linkedAccounts": {
+          "providers": [
+            {
+              "providerId": "password",
+              "name": "Email/Password",
+              "icon": "📧",
+              "color": "#6C757D",
+              "status": "active",
+              "displayName": "Company User",
+              "email": "user@company.com",
+              "photoURL": null,
+              "uid": "ghi345jkl678",
+              "linkedAt": "2024-01-12T00:00:00.000Z",
+              "isPrimary": true
+            }
+          ],
+          "stats": {
+            "totalLinked": 1,
+            "primaryProvider": "password",
+            "lastLinkedAt": "2024-01-12T00:00:00.000Z",
+            "emailVerified": false,
+            "hasMultipleProviders": false
+          },
+          "summary": {
+            "totalLinked": 1,
+            "primaryProvider": "password",
+            "hasMultipleProviders": false,
+            "emailVerified": false
+          }
+        },
+        "availableProviders": [
+          {
+            "providerId": "google.com",
+            "name": "Google",
+            "icon": "🔑",
+            "color": "#4285F4",
+            "status": "available",
+            "canLink": true
+          },
+          {
+            "providerId": "apple.com",
+            "name": "Apple",
+            "icon": "🍎",
+            "color": "#000000",
+            "status": "available",
+            "canLink": true
+          },
+          {
+            "providerId": "line.com",
+            "name": "LINE",
+            "icon": "🟩",
+            "color": "#00C300",
+            "status": "available",
+            "canLink": true
+          }
+        ],
+        "customClaims": {
+          "hasCustomClaims": false,
+          "claims": null
+        },
+        "metadata": {
+          "lastUpdated": "2024-01-15T08:30:00.000Z",
+          "firebaseVersion": "9.x",
+          "endpoint": "/api/auth/linked-accounts"
+        }
+      }
+    },
+    "user_with_multiple_providers": {
+      "description": "User with Google, Apple, and LINE accounts",
+      "response": {
+        "success": true,
+        "user": {
+          "uid": "mno901pqr234",
+          "email": "user@example.com",
+          "displayName": "Multi-Provider User",
+          "photoURL": "https://lh3.googleusercontent.com/a/ACg8ocJ...",
+          "emailVerified": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "lastSignInAt": "2024-01-15T11:00:00.000Z"
+        },
+        "linkedAccounts": {
+          "providers": [
+            {
+              "providerId": "google.com",
+              "name": "Google",
+              "icon": "🔑",
+              "color": "#4285F4",
+              "status": "active",
+              "displayName": "Multi-Provider User",
+              "email": "user@gmail.com",
+              "photoURL": "https://lh3.googleusercontent.com/a/ACg8ocJ...",
+              "uid": "987654321",
+              "linkedAt": "2024-01-01T00:00:00.000Z",
+              "isPrimary": true
+            },
+            {
+              "providerId": "apple.com",
+              "name": "Apple",
+              "icon": "🍎",
+              "color": "#000000",
+              "status": "active",
+              "displayName": "Multi-Provider User",
+              "email": "user@icloud.com",
+              "photoURL": null,
+              "uid": "001234.567890abcdef.5678",
+              "linkedAt": "2024-01-08T14:20:00.000Z",
+              "isPrimary": false
+            },
+            {
+              "providerId": "line.com",
+              "name": "LINE",
+              "icon": "🟩",
+              "color": "#00C300",
+              "status": "active",
+              "displayName": "Multi-Provider User",
+              "email": "user@example.com",
+              "photoURL": "https://profile.line-scdn.net/...",
+              "uid": "U1234567890abcdef",
+              "linkedAt": "2024-01-12T16:45:00.000Z",
+              "isPrimary": false,
+              "statusMessage": "Multi-platform user!"
+            }
+          ],
+          "stats": {
+            "totalLinked": 3,
+            "primaryProvider": "google.com",
+            "lastLinkedAt": "2024-01-12T16:45:00.000Z",
+            "emailVerified": true,
+            "hasMultipleProviders": true
+          },
+          "summary": {
+            "totalLinked": 3,
+            "primaryProvider": "google.com",
+            "hasMultipleProviders": true,
+            "emailVerified": true
+          }
+        },
+        "availableProviders": [
+          {
+            "providerId": "facebook.com",
+            "name": "Facebook",
+            "icon": "📘",
+            "color": "#1877F2",
+            "status": "available",
+            "canLink": true
+          },
+          {
+            "providerId": "github.com",
+            "name": "GitHub",
+            "icon": "🐙",
+            "color": "#333333",
+            "status": "available",
+            "canLink": true
+          }
+        ],
+        "customClaims": {
+          "hasCustomClaims": true,
+          "claims": {
+            "lineUserId": "U1234567890abcdef",
+            "lineDisplayName": "Multi-Provider User",
+            "linePictureUrl": "https://profile.line-scdn.net/...",
+            "lineStatusMessage": "Multi-platform user!",
+            "lastLineSignIn": "2024-01-12T16:45:00.000Z",
+            "hasLineAccount": true,
+            "linkedProviders": ["line", "apple"],
+            "lastLinkedAt": "2024-01-12T16:45:00.000Z"
+          }
+        },
+        "metadata": {
+          "lastUpdated": "2024-01-15T11:00:00.000Z",
+          "firebaseVersion": "9.x",
+          "endpoint": "/api/auth/linked-accounts"
+        }
+      }
+    },
+    "error_user_not_found": {
+      "description": "Error when user is not found",
+      "response": {
+        "success": false,
+        "error": "User not found",
+        "details": "No user record found for the given UID",
+        "code": "auth/user-not-found",
+        "timestamp": "2024-01-15T10:30:00.000Z"
+      }
+    },
+    "error_invalid_uid": {
+      "description": "Error when UID is invalid",
+      "response": {
+        "success": false,
+        "error": "Invalid Firebase UID",
+        "details": "The provided UID is not valid",
+        "code": "auth/invalid-uid",
+        "timestamp": "2024-01-15T10:30:00.000Z"
+      }
+    }
+  },
+  "metadata": {
+    "description": "Example responses for Linked Accounts API",
+    "version": "1.0.0",
+    "created": "2024-01-15T10:30:00.000Z",
+    "endpoints": [
+      "GET /api/auth/linked-accounts/:firebaseUid",
+      "GET /api/auth/linked-accounts-by-email/:email"
+    ]
+  }
+}

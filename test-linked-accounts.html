@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Linked Accounts API</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus, input[type="email"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .provider-card {
+            display: inline-block;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px;
+            text-align: center;
+            min-width: 120px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .provider-card.linked {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        .provider-card.available {
+            border-color: #6c757d;
+            background: #f8f9fa;
+        }
+        .provider-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .provider-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .provider-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            color: white;
+        }
+        .status-active {
+            background: #28a745;
+        }
+        .status-available {
+            background: #6c757d;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Test Linked Accounts API</h1>
+        <p>ทดสอบ API สำหรับดึงข้อมูล linked accounts จาก Firebase</p>
+        
+        <div class="form-group">
+            <label for="firebaseUid">Firebase UID:</label>
+            <input type="text" id="firebaseUid" placeholder="ใส่ Firebase UID ที่ต้องการตรวจสอบ">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">หรือ Email:</label>
+            <input type="email" id="email" placeholder="ใส่ email ที่ต้องการตรวจสอบ">
+        </div>
+        
+        <div>
+            <button onclick="getLinkedAccountsByUid()">🔍 Get by UID</button>
+            <button onclick="getLinkedAccountsByEmail()">📧 Get by Email</button>
+            <button onclick="clearResults()">🗑️ Clear Results</button>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">กำลังโหลดข้อมูล...</div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        
+        async function getLinkedAccountsByUid() {
+            const uid = document.getElementById('firebaseUid').value.trim();
+            if (!uid) {
+                alert('กรุณาใส่ Firebase UID');
+                return;
+            }
+            
+            await fetchLinkedAccounts(`/api/auth/linked-accounts/${uid}`);
+        }
+        
+        async function getLinkedAccountsByEmail() {
+            const email = document.getElementById('email').value.trim();
+            if (!email) {
+                alert('กรุณาใส่ Email');
+                return;
+            }
+            
+            await fetchLinkedAccounts(`/api/auth/linked-accounts-by-email/${encodeURIComponent(email)}`);
+        }
+        
+        async function fetchLinkedAccounts(endpoint) {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            
+            loading.style.display = 'block';
+            results.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLinkedAccounts(data);
+                } else {
+                    displayError(data.error || 'Unknown error', data);
+                }
+            } catch (error) {
+                displayError('Network error: ' + error.message, { error: error.message });
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+        
+        function displayLinkedAccounts(data) {
+            const results = document.getElementById('results');
+            
+            let html = `
+                <div class="result success">
+                    <h3>✅ Linked Accounts Retrieved Successfully</h3>
+                    
+                    <h4>👤 User Information</h4>
+                    <p><strong>UID:</strong> ${data.user.uid}</p>
+                    <p><strong>Email:</strong> ${data.user.email || 'N/A'}</p>
+                    <p><strong>Display Name:</strong> ${data.user.displayName || 'N/A'}</p>
+                    <p><strong>Email Verified:</strong> ${data.user.emailVerified ? '✅ Yes' : '❌ No'}</p>
+                    <p><strong>Created:</strong> ${new Date(data.user.createdAt).toLocaleString('th-TH')}</p>
+                    <p><strong>Last Sign In:</strong> ${data.user.lastSignInAt ? new Date(data.user.lastSignInAt).toLocaleString('th-TH') : 'N/A'}</p>
+                </div>
+            `;
+            
+            // Display statistics
+            if (data.linkedAccounts.stats) {
+                const stats = data.linkedAccounts.stats;
+                html += `
+                    <div class="container">
+                        <h4>📊 Account Statistics</h4>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-number">${stats.totalLinked}</div>
+                                <div class="stat-label">Total Linked Providers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">${stats.hasMultipleProviders ? '✅' : '❌'}</div>
+                                <div class="stat-label">Multiple Providers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">${stats.emailVerified ? '✅' : '❌'}</div>
+                                <div class="stat-label">Email Verified</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number">${stats.primaryProvider || 'N/A'}</div>
+                                <div class="stat-label">Primary Provider</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Display linked providers
+            if (data.linkedAccounts.providers && data.linkedAccounts.providers.length > 0) {
+                html += `
+                    <div class="container">
+                        <h4>🔗 Linked Providers (${data.linkedAccounts.providers.length})</h4>
+                        <div>
+                `;
+                
+                data.linkedAccounts.providers.forEach(provider => {
+                    const statusClass = provider.status === 'active' ? 'status-active' : 'status-available';
+                    const cardClass = provider.isPrimary ? 'linked primary' : 'linked';
+                    
+                                         html += `
+                         <div class="provider-card ${cardClass}">
+                             <div class="provider-icon">${provider.icon}</div>
+                             <div class="provider-name">${provider.name}</div>
+                             <div class="provider-status ${statusClass}">${provider.isPrimary ? 'Primary' : 'Linked'}</div>
+                             ${provider.displayName ? `<div style="font-size: 12px; margin-top: 5px;">${provider.displayName}</div>` : ''}
+                             ${provider.linkedAt ? `<div style="font-size: 10px; margin-top: 5px; color: #666;">${new Date(provider.linkedAt).toLocaleDateString('th-TH')}</div>` : ''}
+                             
+                             ${provider.lineSpecific ? `
+                                 <div style="margin-top: 8px; padding: 8px; background: #f0f8f0; border-radius: 4px; font-size: 11px;">
+                                     <div style="font-weight: bold; color: #00C300;">LINE Info:</div>
+                                     ${provider.lineSpecific.statusMessage ? `<div>Status: ${provider.lineSpecific.statusMessage}</div>` : ''}
+                                     ${provider.lineSpecific.userId ? `<div>LINE ID: ${provider.lineSpecific.userId}</div>` : ''}
+                                     ${provider.lineSpecific.lastSignIn ? `<div>Last LINE Sign In: ${new Date(provider.lineSpecific.lastSignIn).toLocaleDateString('th-TH')}</div>` : ''}
+                                 </div>
+                             ` : ''}
+                         </div>
+                     `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="container">
+                        <h4>🔗 Linked Providers</h4>
+                        <p>No linked providers found.</p>
+                    </div>
+                `;
+            }
+            
+            // Display available providers
+            if (data.availableProviders && data.availableProviders.length > 0) {
+                html += `
+                    <div class="container">
+                        <h4>➕ Available Providers (${data.availableProviders.length})</h4>
+                        <p>Providers that can be linked to this account:</p>
+                        <div>
+                `;
+                
+                data.availableProviders.forEach(provider => {
+                    html += `
+                        <div class="provider-card available">
+                            <div class="provider-icon">${provider.icon}</div>
+                            <div class="provider-name">${provider.name}</div>
+                            <div class="provider-status status-available">Available</div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Display custom claims info
+            if (data.customClaims && data.customClaims.hasCustomClaims) {
+                html += `
+                    <div class="container">
+                        <h4>🔐 Custom Claims</h4>
+                        <p>This user has custom claims configured.</p>
+                        <details>
+                            <summary>View Custom Claims Details</summary>
+                            <div class="result" style="margin-top: 10px;">
+                                ${JSON.stringify(data.customClaims.claims, null, 2)}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            }
+            
+            // Display raw response data
+            html += `
+                <div class="container">
+                    <h4>📋 Raw Response Data</h4>
+                    <details>
+                        <summary>View Complete API Response</summary>
+                        <div class="result" style="margin-top: 10px;">
+                            ${JSON.stringify(data, null, 2)}
+                        </div>
+                    </details>
+                </div>
+            `;
+            
+            results.innerHTML = html;
+        }
+        
+        function displayError(message, data) {
+            const results = document.getElementById('results');
+            results.innerHTML = `
+                <div class="result error">
+                    <h3>❌ Error: ${message}</h3>
+                    <p><strong>Details:</strong></p>
+                    <div class="result">
+                        ${JSON.stringify(data, null, 2)}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('firebaseUid').value = '';
+            document.getElementById('email').value = '';
+        }
+        
+        // Auto-fill with sample UID for testing
+        document.getElementById('firebaseUid').placeholder = 'ใส่ Firebase UID (เช่น: user123)';
+        document.getElementById('email').placeholder = 'ใส่ email (เช่น: user@example.com)';
+    </script>
+</body>
+</html>

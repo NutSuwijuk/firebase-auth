@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
 const axios = require('axios');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -901,9 +902,9 @@ app.post('/api/auth/line/verify', async (req, res) => {
  * LINE Login - Verify Access Token (GET endpoint)
  * GET https://api.line.me/oauth2/v2.1/verify?access_token=${accessToken}
  */
-app.post('/api/auth/line/verify-token', async (req, res) => {
+app.get('/api/auth/line/verify-token/:accessToken/:sub/:email', async (req, res) => {
   try {
-    const { accessToken, sub, email } = req.body;
+    const { accessToken , sub , email } = req.params;
     console.log("accessToken:", accessToken);
     console.log("sub:", sub);
     console.log("email:", email);
@@ -948,6 +949,7 @@ app.post('/api/auth/line/verify-token', async (req, res) => {
         console.log("✅ Custom token created:", customToken);
 
       } catch (err) {
+
         if (err.code === 'auth/user-not-found') {
           console.log(`ℹ️ User with email ${email} not found, creating new user`);
           
@@ -1448,7 +1450,371 @@ async function verifyLineIdToken(idToken) {
   return res.json(); // คืน profile { sub, name, picture, email, ... }
 }
 
+/**
+ * Get user's linked accounts and social providers
+ * ดึงข้อมูลว่าบัญชีนี้ผูกกับ social provider ไหนบ้าง
+ */
+app.get('/api/auth/linked-accounts/:firebaseUid', async (req, res) => {
+  try {
+    const { firebaseUid } = req.params;
+    
+    if (!firebaseUid) {
+      return res.status(400).json({
+        success: false,
+        error: "Firebase UID is required"
+      });
+    }
 
+    console.log(`🔍 Getting linked accounts for Firebase UID: ${firebaseUid}`);
+
+    // Get user record from Firebase Admin
+    const userRecord = await admin.auth().getUser(firebaseUid);
+    
+    if (!userRecord) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
+    }
+
+    // Extract provider information
+    const providerData = userRecord.providerData || [];
+    const customClaims = userRecord.customClaims || {};
+    
+    // Map provider IDs to display names and icons
+    const providerMap = {
+      'google.com': {
+        name: 'Google',
+        icon: '🔑',
+        color: '#4285F4',
+        status: 'active'
+      },
+      'apple.com': {
+        name: 'Apple',
+        icon: '🍎',
+        color: '#000000',
+        status: 'active'
+      },
+      'oidc.line': {
+        name: 'LINE',
+        icon: '🟩',
+        color: '#00C300',
+        status: 'active'
+      },
+      'line.com': {
+        name: 'LINE',
+        icon: '🟩',
+        color: '#00C300',
+        status: 'active'
+      },
+      'facebook.com': {
+        name: 'Facebook',
+        icon: '📘',
+        color: '#1877F2',
+        status: 'active'
+      },
+      'twitter.com': {
+        name: 'Twitter',
+        icon: '🐦',
+        color: '#1DA1F2',
+        status: 'active'
+      },
+      'github.com': {
+        name: 'GitHub',
+        icon: '🐙',
+        color: '#333333',
+        status: 'active'
+      },
+      'microsoft.com': {
+        name: 'Microsoft',
+        icon: '🪟',
+        color: '#0078D4',
+        status: 'active'
+      },
+      'yahoo.com': {
+        name: 'Yahoo',
+        icon: '📧',
+        color: '#720E9E',
+        status: 'active'
+      },
+      'password': {
+        name: 'Email/Password',
+        icon: '📧',
+        color: '#6C757D',
+        status: 'active'
+      },
+      'phone': {
+        name: 'Phone',
+        icon: '📱',
+        color: '#28A745',
+        status: 'active'
+      },
+      'anonymous': {
+        name: 'Anonymous',
+        icon: '👤',
+        color: '#6C757D',
+        status: 'active'
+      }
+    };
+
+    // Process linked providers
+    const linkedProviders = [];
+    const availableProviders = [];
+    
+    // Add current providers from providerData
+    providerData.forEach(provider => {
+      const providerInfo = providerMap[provider.providerId] || {
+        name: provider.providerId,
+        icon: '🔐',
+        color: '#6C757D',
+        status: 'active'
+      };
+      
+      linkedProviders.push({
+        providerId: provider.providerId,
+        name: providerInfo.name,
+        icon: providerInfo.icon,
+        color: providerInfo.color,
+        status: providerInfo.status,
+        displayName: provider.displayName || null,
+        email: provider.email || null,
+        photoURL: provider.photoURL || null,
+        uid: provider.uid || null,
+        linkedAt: userRecord.metadata.lastSignInTime || null,
+        isPrimary: true
+      });
+    });
+
+    // Add providers from custom claims
+    if (customClaims.linkedProviders && Array.isArray(customClaims.linkedProviders)) {
+      customClaims.linkedProviders.forEach(providerId => {
+        // Check if already added
+        const exists = linkedProviders.find(p => p.providerId === providerId);
+        if (!exists) {
+          const providerInfo = providerMap[providerId] || {
+            name: providerId,
+            icon: '🔐',
+            color: '#6C757D',
+            status: 'active'
+          };
+          
+          linkedProviders.push({
+            providerId: providerId,
+            name: providerInfo.name,
+            icon: providerInfo.icon,
+            color: providerInfo.color,
+            status: providerInfo.status,
+            displayName: customClaims[`${providerId}DisplayName`] || null,
+            email: customClaims[`${providerId}Email`] || null,
+            photoURL: customClaims[`${providerId}PictureUrl`] || null,
+            uid: customClaims[`${providerId}UserId`] || null,
+            linkedAt: customClaims[`last${providerId.charAt(0).toUpperCase() + providerId.slice(1)}SignIn`] || customClaims.lastLinkedAt || null,
+            isPrimary: false
+          });
+        }
+      });
+    }
+
+    // Add LINE-specific information from custom claims
+    if (customClaims.lineUserId && !linkedProviders.find(p => p.providerId === 'line.com' || p.providerId === 'oidc.line')) {
+      linkedProviders.push({
+        providerId: 'line.com',
+        name: 'LINE',
+        icon: '🟩',
+        color: '#00C300',
+        status: 'active',
+        displayName: customClaims.lineDisplayName || null,
+        email: customClaims.email || null,
+        photoURL: customClaims.linePictureUrl || null,
+        uid: customClaims.lineUserId || null,
+        statusMessage: customClaims.lineStatusMessage || null,
+        linkedAt: customClaims.lastLineSignIn || customClaims.lastLinkedAt || null,
+        isPrimary: false,
+        lineSpecific: {
+          userId: customClaims.lineUserId,
+          displayName: customClaims.lineDisplayName,
+          pictureUrl: customClaims.linePictureUrl,
+          statusMessage: customClaims.lineStatusMessage,
+          lastSignIn: customClaims.lastLineSignIn,
+          hasLineAccount: customClaims.hasLineAccount || true
+        }
+      });
+    }
+
+    // Also check for LINE providers in providerData that might not be in custom claims
+    const lineProviderData = providerData.find(p => 
+      p.providerId === 'oidc.line' || p.providerId === 'line.com'
+    );
+    
+    if (lineProviderData && !linkedProviders.find(p => p.providerId === 'line.com' || p.providerId === 'oidc.line')) {
+      linkedProviders.push({
+        providerId: lineProviderData.providerId,
+        name: 'LINE',
+        icon: '🟩',
+        color: '#00C300',
+        status: 'active',
+        displayName: lineProviderData.displayName || null,
+        email: lineProviderData.email || null,
+        photoURL: lineProviderData.photoURL || null,
+        uid: lineProviderData.uid || null,
+        linkedAt: userRecord.metadata.lastSignInTime || null,
+        isPrimary: true,
+        lineSpecific: {
+          userId: lineProviderData.uid,
+          displayName: lineProviderData.displayName,
+          pictureUrl: lineProviderData.photoURL,
+          statusMessage: null,
+          lastSignIn: userRecord.metadata.lastSignInTime,
+          hasLineAccount: true
+        }
+      });
+    }
+
+    // Create list of available providers (not yet linked)
+    Object.keys(providerMap).forEach(providerId => {
+      const isLinked = linkedProviders.find(p => p.providerId === providerId);
+      if (!isLinked) {
+        const providerInfo = providerMap[providerId];
+        availableProviders.push({
+          providerId: providerId,
+          name: providerInfo.name,
+          icon: providerInfo.icon,
+          color: providerInfo.color,
+          status: 'available',
+          canLink: true
+        });
+      }
+    });
+
+    // Calculate statistics
+    const stats = {
+      totalLinked: linkedProviders.length,
+      primaryProvider: linkedProviders.find(p => p.isPrimary)?.providerId || null,
+      lastLinkedAt: linkedProviders.length > 0 ? 
+        Math.max(...linkedProviders.map(p => new Date(p.linkedAt || 0).getTime())) : null,
+      emailVerified: userRecord.emailVerified || false,
+      hasMultipleProviders: linkedProviders.length > 1
+    };
+
+    // Create response structure
+    const responseData = {
+      success: true,
+      user: {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userRecord.displayName,
+        photoURL: userRecord.photoURL,
+        emailVerified: userRecord.emailVerified,
+        createdAt: userRecord.metadata.creationTime,
+        lastSignInAt: userRecord.metadata.lastSignInTime
+      },
+      linkedAccounts: {
+        providers: linkedProviders,
+        stats: stats,
+        summary: {
+          totalLinked: stats.totalLinked,
+          primaryProvider: stats.primaryProvider,
+          hasMultipleProviders: stats.hasMultipleProviders,
+          emailVerified: stats.emailVerified
+        }
+      },
+      availableProviders: availableProviders,
+      customClaims: {
+        hasCustomClaims: Object.keys(customClaims).length > 0,
+        claims: Object.keys(customClaims).length > 0 ? customClaims : null
+      },
+      metadata: {
+        lastUpdated: new Date().toISOString(),
+        firebaseVersion: '9.x',
+        endpoint: '/api/auth/linked-accounts'
+      }
+    };
+
+    console.log(`✅ Successfully retrieved linked accounts for user: ${userRecord.email}`, {
+      totalLinked: stats.totalLinked,
+      primaryProvider: stats.primaryProvider,
+      hasMultipleProviders: stats.hasMultipleProviders
+    });
+
+    res.json(responseData);
+
+  } catch (error) {
+    console.error('❌ Error getting linked accounts:', error);
+    
+    let errorMessage = 'Failed to get linked accounts';
+    let statusCode = 500;
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'User not found';
+      statusCode = 404;
+    } else if (error.code === 'auth/invalid-uid') {
+      errorMessage = 'Invalid Firebase UID';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      details: error.message,
+      code: error.code || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Get user's linked accounts by email
+ * ดึงข้อมูล linked accounts จาก email
+ */
+app.get('/api/auth/linked-accounts-by-email/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "Email is required"
+      });
+    }
+
+    console.log(`🔍 Getting linked accounts for email: ${email}`);
+
+    // Get user record from Firebase Admin by email
+    const userRecord = await admin.auth().getUserByEmail(email);
+    
+    if (!userRecord) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
+    }
+
+    // Redirect to the UID-based endpoint
+    res.redirect(`/api/auth/linked-accounts/${userRecord.uid}`);
+
+  } catch (error) {
+    console.error('❌ Error getting linked accounts by email:', error);
+    
+    let errorMessage = 'Failed to get linked accounts';
+    let statusCode = 500;
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'User not found';
+      statusCode = 404;
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Invalid email format';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      details: error.message,
+      code: error.code || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Start server
 app.listen(PORT, () => {
@@ -1472,6 +1838,9 @@ app.listen(PORT, () => {
   console.log(`   POST /api/auth/sync-user - Sync Firebase user data`);
   console.log(`   GET  /api/auth/profile-by-firebase/:uid - Get profile by Firebase UID`);
   console.log(`   PUT  /api/auth/update-profile-by-firebase/:uid - Update profile by Firebase UID`);
+  console.log(`🔗 Linked Accounts endpoints:`);
+  console.log(`   GET  /api/auth/linked-accounts/:uid - Get linked accounts by Firebase UID`);
+  console.log(`   GET  /api/auth/linked-accounts-by-email/:email - Get linked accounts by email`);
   console.log(`👥 Users endpoint: GET /api/users`);
   console.log(`👥 Revoke user endpoint: POST /api/auth/revoke-user`);
 }); 

@@ -81,6 +81,69 @@ Firebase Authentication เป็นบริการจัดการผู�
    - `127.0.0.1` (สำหรับทดสอบ)
    - โดเมนจริงของคุณ (สำหรับใช้งานจริง)
 
+## 🎨 Frontend (Flutter)
+
+### การตั้งค่า Firebase ใน Flutter
+
+1. ติดตั้ง FlutterFire CLI
+```bash
+dart pub global activate flutterfire_cli
+```
+
+2. ติดตั้ง dependencies ใน `pubspec.yaml`
+```yaml
+dependencies:
+  firebase_core: latest
+  firebase_auth: latest
+  google_sign_in: latest
+```
+
+3. เริ่มต้น Firebase ใน `main.dart`
+```dart
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(MyApp());
+}
+```
+
+4. การล็อกอินด้วย Google
+```dart
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+Future<UserCredential> signInWithGoogle() async {
+  final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+  final GoogleSignInAuthentication? googleAuth = await googleUser?.authentication;
+
+  final credential = GoogleAuthProvider.credential(
+    accessToken: googleAuth?.accessToken,
+    idToken: googleAuth?.idToken,
+  );
+
+  return await FirebaseAuth.instance.signInWithCredential(credential);
+}
+```
+
+5. การตรวจสอบสถานะผู้ใช้
+```dart
+FirebaseAuth.instance.authStateChanges().listen((User? user) {
+  if (user != null) {
+    print('ผู้ใช้ล็อกอิน: ${user.displayName}');
+  } else {
+    print('ยังไม่ได้ล็อกอิน');
+  }
+});
+```
+
+---
+
 ## 🎨 Frontend (ส่วนหน้าเว็บ)
 
 ### การตั้งค่า Firebase ใน Frontend
@@ -684,4 +747,4 @@ Firebase Authentication เป็นเครื่องมือที่ท�
 2. ใช้ Cloud Functions
 3. ตั้งค่าความปลอดภัย
 
-**Happy Coding! 🎉** 
+**Happy Coding! 🎉**

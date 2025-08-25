@@ -1,0 +1,23 @@
+# Firebase Configuration
+FIREBASE_PROJECT_ID=daring-calling-827
+FIREBASE_DATABASE_URL=https://daring-calling-827.firebaseio.com
+
+# JWT Secret (change this in production)
+JWT_SECRET=your-secret-key-change-in-production
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# LINE Configuration
+LINE_CHANNEL_ID=2007733529
+LINE_CHANNEL_SECRET=4e3197d83a8d9836ae5794fda50b698a
+LINE_REDIRECT_URI=http://127.0.0.1:5500/index.html
+
+# Firebase Admin SDK (if using service account file, leave these empty)
+# FIREBASE_ADMIN_KEY=
+# FIREBASE_PRIVATE_KEY_ID=
+# FIREBASE_PRIVATE_KEY=
+# FIREBASE_CLIENT_EMAIL=
+# FIREBASE_CLIENT_ID=
+# FIREBASE_CLIENT_X509_CERT_URL=
