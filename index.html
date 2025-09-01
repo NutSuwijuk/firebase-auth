@@ -683,73 +683,80 @@
           // Firebase user is signed in
           if (userInfo) userInfo.style.display = "block";
           if (userDetails) {
-            // Debug: Log provider data
-            console.log("Current user provider data:", currentUser.providerData);
-            console.log("User email:", currentUser.email);
-            console.log("User display name:", currentUser.displayName);
-            
-            // Get provider information
-            let providerId = "Custom Token";
-            let providerName = "Custom Token";
-            let providerIcon = "🔐";
-            
-            if (currentUser.providerData && currentUser.providerData.length > 0) {
-              // Get the first provider (most recent login method)
-              const primaryProvider = currentUser.providerData[0];
-              providerId = primaryProvider.providerId;
-              providerName = getProviderDisplayName(providerId);
-              providerIcon = getProviderIcon(providerId);
+            // Get Firebase ID Token and then update UI
+            currentUser.getIdToken().then(idToken => {
+              console.log("Firebase ID Token:", idToken);
+
+              // Debug: Log provider data
+              console.log("Current user provider data:", currentUser.providerData);
+              console.log("User email:", currentUser.email);
+              console.log("User display name:", currentUser.displayName);
               
-              console.log("Primary provider:", primaryProvider);
-              console.log("Detected provider:", providerId, "->", providerName);
-            } else {
-              // Fallback: try to determine provider from user properties
-              console.log("No provider data found, using fallback detection");
+              // Get provider information
+              let providerId = "Custom Token";
+              let providerName = "Custom Token";
+              let providerIcon = "🔐";
               
-              if (currentUser.email) {
-                if (currentUser.email.includes('@gmail.com')) {
-                  providerId = 'google.com';
-                  providerName = 'Google';
-                  providerIcon = '🔑';
-                  console.log("Fallback: Detected Google from Gmail domain");
-                } else if (currentUser.email.includes('@icloud.com') || currentUser.email.includes('@me.com')) {
-                  providerId = 'apple.com';
-                  providerName = 'Apple';
-                  providerIcon = '🍎';
-                  console.log("Fallback: Detected Apple from iCloud domain");
-                } else {
-                  // Check if it's a Google account by other indicators
-                  const isGoogleAccount = currentUser.emailVerified && 
-                    (currentUser.displayName || currentUser.photoURL);
-                  if (isGoogleAccount) {
+              if (currentUser.providerData && currentUser.providerData.length > 0) {
+                // Get the first provider (most recent login method)
+                const primaryProvider = currentUser.providerData[0];
+                providerId = primaryProvider.providerId;
+                providerName = getProviderDisplayName(providerId);
+                providerIcon = getProviderIcon(providerId);
+                
+                console.log("Primary provider:", primaryProvider);
+                console.log("Detected provider:", providerId, "->", providerName);
+              } else {
+                // Fallback: try to determine provider from user properties
+                console.log("No provider data found, using fallback detection");
+                
+                if (currentUser.email) {
+                  if (currentUser.email.includes('@gmail.com')) {
                     providerId = 'google.com';
                     providerName = 'Google';
                     providerIcon = '🔑';
-                    console.log("Fallback: Detected Google from account indicators");
+                    console.log("Fallback: Detected Google from Gmail domain");
+                  } else if (currentUser.email.includes('@icloud.com') || currentUser.email.includes('@me.com')) {
+                    providerId = 'apple.com';
+                    providerName = 'Apple';
+                    providerIcon = '🍎';
+                    console.log("Fallback: Detected Apple from iCloud domain");
+                  } else {
+                    // Check if it's a Google account by other indicators
+                    const isGoogleAccount = currentUser.emailVerified && 
+                      (currentUser.displayName || currentUser.photoURL);
+                    if (isGoogleAccount) {
+                      providerId = 'google.com';
+                      providerName = 'Google';
+                      providerIcon = '🔑';
+                      console.log("Fallback: Detected Google from account indicators");
+                    }
                   }
                 }
               }
-            }
-            
-            userDetails.innerHTML = `
-                        <h3>👤 User Information (Firebase)</h3>
-                        <p><strong>Email:</strong> ${
-                          currentUser.email || "N/A"
-                        }</p>
-                        <p><strong>Display Name:</strong> ${
-                          currentUser.displayName || "N/A"
-                        }</p>
-                        <p><strong>UID:</strong> ${currentUser.uid}</p>
-                        <p><strong>Current Login:</strong> ${providerIcon} ${providerName}</p>
-                        <p><strong>Linked Providers:</strong></p>
-                        <div style="margin-left: 20px; margin-top: 5px;">
-                            ${currentUser.providerData?.map(provider => {
-                                const icon = getProviderIcon(provider.providerId);
-                                const name = getProviderDisplayName(provider.providerId);
-                                return `<p style="margin: 5px 0;">${icon} ${name} (${provider.providerId})</p>`;
-                            }).join('') || '<p style="margin: 5px 0; color: #999;">No linked providers</p>'}
-                        </div>
-                    `;
+              
+              userDetails.innerHTML = `
+                          <h3>👤 User Information (Firebase)</h3>
+                          <p><strong>Email:</strong> ${
+                            currentUser.email || "N/A"
+                          }</p>
+                          <p><strong>Display Name:</strong> ${
+                            currentUser.displayName || "N/A"
+                          }</p>
+                          <p><strong>UID:</strong> ${currentUser.uid}</p>
+                          <p><strong>Current Login:</strong> ${providerIcon} ${providerName}</p>
+                          <p><strong>Linked Providers:</strong></p>
+                          <div style="margin-left: 20px; margin-top: 5px;">
+                              ${currentUser.providerData?.map(provider => {
+                                  const icon = getProviderIcon(provider.providerId);
+                                  const name = getProviderDisplayName(provider.providerId);
+                                  return `<p style="margin: 5px 0;">${icon} ${name} (${provider.providerId})</p>`;
+                              }).join('') || '<p style="margin: 5px 0; color: #999;">No linked providers</p>'}
+                          </div>
+                          <p style="margin-top: 15px;"><strong>Firebase ID Token:</strong></p>
+                          <textarea readonly style="width: 100%; height: 120px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-top: 5px; resize: vertical;">${idToken}</textarea>
+                      `;
+            });
           }
           if (logoutBtn) logoutBtn.style.display = "block";
           
