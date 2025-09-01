@@ -761,6 +761,7 @@
         const lineUser = localStorage.getItem("lineUser");
         const lineProfile = localStorage.getItem("lineProfile");
         const lineAccessToken = localStorage.getItem("lineAccessToken");
+        const lineIdToken = localStorage.getItem("lineIdToken");
 
         if (lineUser && lineProfile) {
           const user = JSON.parse(lineUser);
@@ -779,6 +780,7 @@
                         <p><strong>LINE User ID:</strong> ${profile.userId}</p>
                         <p><strong>Access Token:</strong> <code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px; font-size: 12px;">${lineAccessToken ? lineAccessToken.substring(0, 20) + '...' : 'N/A'}</code></p>
                         <p><strong>Full Access Token:</strong> <textarea readonly style="width: 100%; height: 60px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px;">${lineAccessToken || 'N/A'}</textarea></p>
+                        <p><strong>Full ID Token:</strong> <textarea readonly style="width: 100%; height: 60px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px;">${lineIdToken || 'N/A'}</textarea></p>
                         ${
                           profile.pictureUrl
                             ? `<img src="${profile.pictureUrl}" alt="Profile" class="profile-pic">`
