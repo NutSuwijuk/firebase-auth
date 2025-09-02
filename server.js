@@ -35,9 +35,9 @@ app.get('/api/health', (req, res) => {
 
 // LINE Login Configuration
 const LINE_CONFIG = {
-  CHANNEL_ID: "2007733529",
-  CHANNEL_SECRET: "4e3197d83a8d9836ae5794fda50b698a",
-  REDIRECT_URI: "http://127.0.0.1:5500/index.html"
+  CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
+  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
+  REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://127.0.0.1:5500/index.html"
 };
 
 
@@ -1843,4 +1843,4 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/auth/linked-accounts-by-email/:email - Get linked accounts by email`);
   console.log(`👥 Users endpoint: GET /api/users`);
   console.log(`👥 Revoke user endpoint: POST /api/auth/revoke-user`);
-}); 
+});
