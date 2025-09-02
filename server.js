@@ -37,7 +37,8 @@ app.get('/api/health', (req, res) => {
 const LINE_CONFIG = {
   CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
   CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
-  REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://127.0.0.1:5500/index.html"
+  REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://localhost:3000/index.html",
+  SIMPLE_REDIRECT_URI: process.env.LINE_SIMPLE_REDIRECT_URI || "http://localhost:3000/line_login_simple.html"
 };
 
 
@@ -549,6 +550,74 @@ app.get('/api/auth/line/auth-url', async (req, res) => {
       error: "Failed to generate authorization URL"
     });
   }
+});
+
+/**
+ * LINE Login - Get Authorization URL (Simple)
+ */
+app.get('/api/auth/line/auth-url-simple', async (req, res) => {
+  try {
+    const state = Math.random().toString(36).substring(7);
+    const authUrl = `https://access.line.me/oauth2/v2.1/authorize?` +
+      `response_type=code&` +
+      `client_id=${LINE_CONFIG.CHANNEL_ID}&` +
+      `redirect_uri=${encodeURIComponent(LINE_CONFIG.SIMPLE_REDIRECT_URI)}&` +
+      `state=${state}&` +
+      `scope=profile%20openid%20email`;
+
+    console.log("Generated Simple LINE auth URL", { state });
+
+    res.json({
+      success: true,
+      authUrl,
+      state
+    });
+  } catch (error) {
+    console.error("Error generating Simple LINE auth URL:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate authorization URL"
+    });
+  }
+});
+
+/**
+ * LINE Login - Exchange Code for Token (Simple)
+ */
+app.post('/api/auth/line/token-simple', async (req, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) {
+            return res.status(400).json({ success: false, error: "Authorization code is required" });
+        }
+
+        const tokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/token',
+            new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: LINE_CONFIG.SIMPLE_REDIRECT_URI,
+                client_id: LINE_CONFIG.CHANNEL_ID,
+                client_secret: LINE_CONFIG.CHANNEL_SECRET
+            }), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+
+        res.json({
+            success: true,
+            id_token: tokenResponse.data.id_token,
+            access_token: tokenResponse.data.access_token
+        });
+
+    } catch (error) {
+        console.error("Error exchanging token (simple):", error.response ? error.response.data : error.message);
+        res.status(500).json({
+            success: false,
+            error: "Failed to exchange token",
+            details: error.response ? error.response.data : error.message
+        });
+    }
 });
 
 /**
