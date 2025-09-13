@@ -38,7 +38,7 @@ const LINE_CONFIG = {
   CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
   CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
   REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://localhost:3000/index.html",
-  SIMPLE_REDIRECT_URI: process.env.LINE_SIMPLE_REDIRECT_URI || "http://localhost:3000/line_login_simple.html"
+  SIMPLE_REDIRECT_URI: process.env.LINE_SIMPLE_REDIRECT_URI || "http://localhost:3000/index.html"
 };
 
 
