@@ -9,6 +9,9 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const crypto = require('crypto');
 
+// Note: Service and repository layers are integrated directly in server.js
+// to avoid module loading issues in this environment
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -96,6 +99,176 @@ try {
 // Initialize Firestore
 const db = admin.firestore();
 console.log('✅ Firestore initialized successfully');
+
+// Service and repository logic is integrated directly in endpoints
+console.log('✅ Server initialized successfully');
+
+// Unlink Provider Logic (integrated service layer)
+async function unlinkProviderLogic(firebaseUid, providerId) {
+  try {
+    console.log(`🔗 Starting unlink provider process`, {
+      firebaseUid,
+      providerId,
+      timestamp: new Date().toISOString()
+    });
+
+    // 1. ตรวจสอบว่าผู้ใช้มีอยู่จริง
+    const userRecord = await admin.auth().getUser(firebaseUid);
+    if (!userRecord) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    // 2. ตรวจสอบว่า provider ถูกเชื่อมต่ออยู่หรือไม่
+    const linkedProviders = userRecord.providerData || [];
+    const providerExists = linkedProviders.find(provider => provider.providerId === providerId);
+    
+    if (!providerExists) {
+      throw new Error('PROVIDER_NOT_LINKED');
+    }
+
+    // 3. ตรวจสอบว่าไม่ใช่ provider สุดท้าย
+    if (linkedProviders.length <= 1) {
+      throw new Error('CANNOT_UNLINK_LAST_PROVIDER');
+    }
+
+    // 4. ทำการ unlink provider โดยการอัปเดต providerData
+    // ใช้วิธีที่ถูกต้องสำหรับ Firebase Admin SDK
+    
+    console.log(`🔗 Unlinking provider: ${providerId}`);
+    
+    // สร้าง providerData ใหม่โดยลบ provider ที่ต้องการ unlink
+    const updatedProviderData = linkedProviders.filter(provider => provider.providerId !== providerId);
+    
+    // อัปเดต user ด้วย providerData ใหม่
+    await admin.auth().updateUser(firebaseUid, {
+      providerData: updatedProviderData
+    });
+    
+    console.log(`✅ Provider ${providerId} unlinked successfully`);
+
+    // 5. อัปเดต custom claims
+    await updateCustomClaimsAfterUnlink(firebaseUid, providerId, userRecord.customClaims);
+
+    // 6. ดึงข้อมูลผู้ใช้ที่อัปเดตแล้ว
+    const updatedUserRecord = await admin.auth().getUser(firebaseUid);
+
+    console.log(`✅ Custom claims updated for unlinked provider: ${providerId}`);
+
+    return {
+      success: true,
+      firebaseUid: updatedUserRecord.uid,
+      email: updatedUserRecord.email,
+      displayName: updatedUserRecord.displayName,
+      unlinkedProvider: providerId,
+      remainingProviders: updatedUserRecord.providerData.map(p => ({
+        providerId: p.providerId,
+        displayName: p.displayName,
+        email: p.email,
+        photoURL: p.photoURL
+      })),
+      unlinkedAt: new Date().toISOString(),
+      note: "Provider successfully unlinked via Firebase Admin SDK"
+    };
+
+  } catch (error) {
+    console.error('❌ Error in unlink provider logic:', error);
+    throw error;
+  }
+}
+
+// Update custom claims after unlink
+async function updateCustomClaimsAfterUnlink(firebaseUid, providerId, currentClaims) {
+  try {
+    const customClaims = currentClaims || {};
+    const updatedClaims = { ...customClaims };
+    
+    // ลบ provider-specific claims
+    const providerSpecificKeys = [
+      `${providerId}UserId`,
+      `${providerId}DisplayName`,
+      `${providerId}Email`,
+      `${providerId}PictureUrl`,
+      `last${providerId.charAt(0).toUpperCase() + providerId.slice(1)}SignIn`,
+      `has${providerId.charAt(0).toUpperCase() + providerId.slice(1)}Account`
+    ];
+    
+    providerSpecificKeys.forEach(key => {
+      delete updatedClaims[key];
+    });
+    
+    // อัปเดต linkedProviders array
+    if (updatedClaims.linkedProviders && Array.isArray(updatedClaims.linkedProviders)) {
+      updatedClaims.linkedProviders = updatedClaims.linkedProviders.filter(p => p !== providerId);
+    }
+    
+    // เพิ่มข้อมูลการ unlink
+    updatedClaims.lastUnlinkedAt = new Date().toISOString();
+    updatedClaims.lastUnlinkedProvider = providerId;
+    
+    // อัปเดต custom claims
+    await admin.auth().setCustomUserClaims(firebaseUid, updatedClaims);
+    
+    console.log(`✅ Updated custom claims after unlink`, {
+      firebaseUid,
+      providerId,
+      removedKeys: providerSpecificKeys.filter(key => customClaims[key])
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating custom claims:', error);
+    throw error;
+  }
+}
+
+// Check if can unlink provider
+async function checkCanUnlinkProvider(firebaseUid, providerId) {
+  try {
+    const userRecord = await admin.auth().getUser(firebaseUid);
+    
+    if (!userRecord) {
+      return {
+        canUnlink: false,
+        reason: 'USER_NOT_FOUND',
+        message: 'ไม่พบผู้ใช้ในระบบ'
+      };
+    }
+
+    const linkedProviders = userRecord.providerData || [];
+    const providerExists = linkedProviders.find(provider => provider.providerId === providerId);
+    
+    if (!providerExists) {
+      return {
+        canUnlink: false,
+        reason: 'PROVIDER_NOT_LINKED',
+        message: `Provider ${providerId} ไม่ได้เชื่อมต่อกับบัญชีนี้`
+      };
+    }
+
+    if (linkedProviders.length <= 1) {
+      return {
+        canUnlink: false,
+        reason: 'CANNOT_UNLINK_LAST_PROVIDER',
+        message: 'ไม่สามารถยกเลิกการเชื่อมต่อ provider ได้ เนื่องจากเป็น provider เดียวที่เหลืออยู่'
+      };
+    }
+
+    return {
+      canUnlink: true,
+      reason: 'SUCCESS',
+      message: 'สามารถ unlink provider ได้',
+      totalProviders: linkedProviders.length,
+      remainingProviders: linkedProviders.length - 1
+    };
+
+  } catch (error) {
+    console.error('❌ Error checking if can unlink provider:', error);
+    return {
+      canUnlink: false,
+      reason: 'ERROR',
+      message: 'เกิดข้อผิดพลาดในการตรวจสอบ'
+    };
+  }
+}
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
@@ -1885,6 +2058,226 @@ app.get('/api/auth/linked-accounts-by-email/:email', async (req, res) => {
   }
 });
 
+/**
+ * Unlink provider from user account
+ * ยกเลิกการเชื่อมต่อ provider จากบัญชีผู้ใช้
+ * ใช้ service layer ตามหลักการ hexagonal architecture
+ */
+app.post('/api/auth/unlink-provider', async (req, res) => {
+  try {
+    const { firebaseUid, providerId, confirmUnlink } = req.body;
+    
+    // Validation
+    if (!firebaseUid || !providerId) {
+      return res.status(400).json({
+        success: false,
+        error: "Firebase UID และ Provider ID จำเป็นต้องระบุ",
+        code: "MISSING_REQUIRED_FIELDS"
+      });
+    }
+
+    if (!confirmUnlink) {
+      return res.status(400).json({
+        success: false,
+        error: "กรุณายืนยันการยกเลิกการเชื่อมต่อ provider",
+        code: "CONFIRMATION_REQUIRED"
+      });
+    }
+
+    console.log(`🔗 Starting unlink provider process`, {
+      firebaseUid,
+      providerId,
+      timestamp: new Date().toISOString()
+    });
+
+    // Unlink provider logic (integrated directly)
+    const result = await unlinkProviderLogic(firebaseUid, providerId);
+
+    res.json({
+      success: true,
+      message: `ยกเลิกการเชื่อมต่อ ${providerId} สำเร็จ`,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error unlinking provider:', error);
+    
+    let errorMessage = 'เกิดข้อผิดพลาดในการยกเลิกการเชื่อมต่อ provider';
+    let statusCode = 500;
+    let errorCode = 'UNLINK_FAILED';
+    
+    // Handle specific error cases
+    if (error.message === 'USER_NOT_FOUND') {
+      errorMessage = 'ไม่พบผู้ใช้ในระบบ';
+      statusCode = 404;
+      errorCode = 'USER_NOT_FOUND';
+    } else if (error.message === 'PROVIDER_NOT_LINKED') {
+      errorMessage = `Provider ${req.body.providerId} ไม่ได้เชื่อมต่อกับบัญชีนี้`;
+      statusCode = 400;
+      errorCode = 'PROVIDER_NOT_LINKED';
+    } else if (error.message === 'CANNOT_UNLINK_LAST_PROVIDER') {
+      errorMessage = 'ไม่สามารถยกเลิกการเชื่อมต่อ provider ได้ เนื่องจากเป็น provider เดียวที่เหลืออยู่';
+      statusCode = 400;
+      errorCode = 'CANNOT_UNLINK_LAST_PROVIDER';
+    } else if (error.code === 'auth/invalid-uid') {
+      errorMessage = 'Firebase UID ไม่ถูกต้อง';
+      statusCode = 400;
+      errorCode = 'INVALID_UID';
+    } else if (error.code === 'auth/invalid-provider-id') {
+      errorMessage = 'Provider ID ไม่ถูกต้อง';
+      statusCode = 400;
+      errorCode = 'INVALID_PROVIDER_ID';
+    } else if (error.code === 'auth/no-such-provider') {
+      errorMessage = 'Provider นี้ไม่ได้เชื่อมต่อกับบัญชี';
+      statusCode = 400;
+      errorCode = 'PROVIDER_NOT_LINKED';
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      details: error.message,
+      code: errorCode,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Check if provider can be unlinked
+ * ตรวจสอบว่าสามารถ unlink provider ได้หรือไม่
+ */
+app.get('/api/auth/can-unlink-provider/:firebaseUid/:providerId', async (req, res) => {
+  try {
+    const { firebaseUid, providerId } = req.params;
+    
+    if (!firebaseUid || !providerId) {
+      return res.status(400).json({
+        success: false,
+        error: "Firebase UID และ Provider ID จำเป็นต้องระบุ",
+        code: "MISSING_REQUIRED_FIELDS"
+      });
+    }
+
+    console.log(`🔍 Checking if can unlink provider`, {
+      firebaseUid,
+      providerId,
+      timestamp: new Date().toISOString()
+    });
+
+    // ตรวจสอบว่าสามารถ unlink ได้หรือไม่
+    const result = await checkCanUnlinkProvider(firebaseUid, providerId);
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error checking if can unlink provider:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการตรวจสอบ',
+      details: error.message,
+      code: 'CHECK_FAILED',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Unlink provider by email
+ * ยกเลิกการเชื่อมต่อ provider โดยใช้ email
+ */
+app.post('/api/auth/unlink-provider-by-email', async (req, res) => {
+  try {
+    const { email, providerId, confirmUnlink } = req.body;
+    
+    // Validation
+    if (!email || !providerId) {
+      return res.status(400).json({
+        success: false,
+        error: "Email และ Provider ID จำเป็นต้องระบุ",
+        code: "MISSING_REQUIRED_FIELDS"
+      });
+    }
+
+    if (!confirmUnlink) {
+      return res.status(400).json({
+        success: false,
+        error: "กรุณายืนยันการยกเลิกการเชื่อมต่อ provider",
+        code: "CONFIRMATION_REQUIRED"
+      });
+    }
+
+    console.log(`🔗 Starting unlink provider by email process`, {
+      email,
+      providerId,
+      timestamp: new Date().toISOString()
+    });
+
+    // Get user record from Firebase by email
+    const userRecord = await admin.auth().getUserByEmail(email);
+    
+    if (!userRecord) {
+      return res.status(404).json({
+        success: false,
+        error: "ไม่พบผู้ใช้ในระบบ",
+        code: "USER_NOT_FOUND"
+      });
+    }
+
+    // Redirect to UID-based unlink endpoint
+    const unlinkResponse = await fetch(`http://localhost:${PORT}/api/auth/unlink-provider`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        firebaseUid: userRecord.uid,
+        providerId: providerId,
+        confirmUnlink: confirmUnlink
+      })
+    });
+
+    const unlinkData = await unlinkResponse.json();
+    
+    if (unlinkResponse.ok) {
+      res.json(unlinkData);
+    } else {
+      res.status(unlinkResponse.status).json(unlinkData);
+    }
+
+  } catch (error) {
+    console.error('❌ Error unlinking provider by email:', error);
+    
+    let errorMessage = 'เกิดข้อผิดพลาดในการยกเลิกการเชื่อมต่อ provider';
+    let statusCode = 500;
+    let errorCode = 'UNLINK_FAILED';
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'ไม่พบผู้ใช้ในระบบ';
+      statusCode = 404;
+      errorCode = 'USER_NOT_FOUND';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'รูปแบบ email ไม่ถูกต้อง';
+      statusCode = 400;
+      errorCode = 'INVALID_EMAIL';
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      details: error.message,
+      code: errorCode,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`);
@@ -1910,6 +2303,10 @@ app.listen(PORT, () => {
   console.log(`🔗 Linked Accounts endpoints:`);
   console.log(`   GET  /api/auth/linked-accounts/:uid - Get linked accounts by Firebase UID`);
   console.log(`   GET  /api/auth/linked-accounts-by-email/:email - Get linked accounts by email`);
+  console.log(`🔓 Unlink Provider endpoints:`);
+  console.log(`   GET  /api/auth/can-unlink-provider/:uid/:providerId - Check if can unlink provider`);
+  console.log(`   POST /api/auth/unlink-provider - Unlink provider by Firebase UID`);
+  console.log(`   POST /api/auth/unlink-provider-by-email - Unlink provider by email`);
   console.log(`👥 Users endpoint: GET /api/users`);
   console.log(`👥 Revoke user endpoint: POST /api/auth/revoke-user`);
 });

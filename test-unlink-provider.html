@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Unlink Provider - Firebase Auth</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Unlink Provider - Firebase Auth</h1>
+        <p>ทดสอบการทำงานของ unlink provider functionality</p>
+
+        <!-- Test 1: Get Linked Accounts -->
+        <div class="test-section">
+            <h3>1. ดู Linked Accounts</h3>
+            <div class="form-group">
+                <label for="testUid">Firebase UID:</label>
+                <input type="text" id="testUid" placeholder="ใส่ Firebase UID ที่ต้องการทดสอบ">
+            </div>
+            <button class="button" onclick="getLinkedAccounts()">ดู Linked Accounts</button>
+            <div id="linkedAccountsResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Test 2: Check if can unlink -->
+        <div class="test-section">
+            <h3>2. ตรวจสอบว่าสามารถ Unlink ได้หรือไม่</h3>
+            <div class="form-group">
+                <label for="checkUid">Firebase UID:</label>
+                <input type="text" id="checkUid" placeholder="ใส่ Firebase UID">
+            </div>
+            <div class="form-group">
+                <label for="checkProviderId">Provider ID:</label>
+                <select id="checkProviderId">
+                    <option value="google.com">Google (google.com)</option>
+                    <option value="apple.com">Apple (apple.com)</option>
+                    <option value="line.com">LINE (line.com)</option>
+                    <option value="facebook.com">Facebook (facebook.com)</option>
+                    <option value="password">Email/Password (password)</option>
+                </select>
+            </div>
+            <button class="button" onclick="checkCanUnlink()">ตรวจสอบ</button>
+            <div id="checkResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Test 3: Unlink Provider -->
+        <div class="test-section">
+            <h3>3. Unlink Provider</h3>
+            <div class="form-group">
+                <label for="unlinkUid">Firebase UID:</label>
+                <input type="text" id="unlinkUid" placeholder="ใส่ Firebase UID">
+            </div>
+            <div class="form-group">
+                <label for="unlinkProviderId">Provider ID:</label>
+                <select id="unlinkProviderId">
+                    <option value="google.com">Google (google.com)</option>
+                    <option value="apple.com">Apple (apple.com)</option>
+                    <option value="line.com">LINE (line.com)</option>
+                    <option value="facebook.com">Facebook (facebook.com)</option>
+                    <option value="password">Email/Password (password)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="confirmUnlink"> ยืนยันการ unlink
+                </label>
+            </div>
+            <button class="button danger" onclick="unlinkProvider()">Unlink Provider</button>
+            <div id="unlinkResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Test 4: Unlink by Email -->
+        <div class="test-section">
+            <h3>4. Unlink Provider by Email</h3>
+            <div class="form-group">
+                <label for="unlinkEmail">Email:</label>
+                <input type="email" id="unlinkEmail" placeholder="ใส่ email">
+            </div>
+            <div class="form-group">
+                <label for="unlinkEmailProviderId">Provider ID:</label>
+                <select id="unlinkEmailProviderId">
+                    <option value="google.com">Google (google.com)</option>
+                    <option value="apple.com">Apple (apple.com)</option>
+                    <option value="line.com">LINE (line.com)</option>
+                    <option value="facebook.com">Facebook (facebook.com)</option>
+                    <option value="password">Email/Password (password)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="confirmUnlinkEmail"> ยืนยันการ unlink
+                </label>
+            </div>
+            <button class="button danger" onclick="unlinkProviderByEmail()">Unlink by Email</button>
+            <div id="unlinkEmailResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000';
+
+        // Helper function to display results
+        function displayResult(elementId, data, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${type}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Test 1: Get Linked Accounts
+        async function getLinkedAccounts() {
+            const uid = document.getElementById('testUid').value;
+            if (!uid) {
+                alert('กรุณาใส่ Firebase UID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/linked-accounts/${uid}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResult('linkedAccountsResult', data, 'success');
+                } else {
+                    displayResult('linkedAccountsResult', data, 'error');
+                }
+            } catch (error) {
+                displayResult('linkedAccountsResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Test 2: Check if can unlink
+        async function checkCanUnlink() {
+            const uid = document.getElementById('checkUid').value;
+            const providerId = document.getElementById('checkProviderId').value;
+            
+            if (!uid || !providerId) {
+                alert('กรุณาใส่ข้อมูลให้ครบถ้วน');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/can-unlink-provider/${uid}/${providerId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResult('checkResult', data, 'success');
+                } else {
+                    displayResult('checkResult', data, 'error');
+                }
+            } catch (error) {
+                displayResult('checkResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Test 3: Unlink Provider
+        async function unlinkProvider() {
+            const uid = document.getElementById('unlinkUid').value;
+            const providerId = document.getElementById('unlinkProviderId').value;
+            const confirmUnlink = document.getElementById('confirmUnlink').checked;
+            
+            if (!uid || !providerId) {
+                alert('กรุณาใส่ข้อมูลให้ครบถ้วน');
+                return;
+            }
+
+            if (!confirmUnlink) {
+                alert('กรุณายืนยันการ unlink');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/unlink-provider`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        firebaseUid: uid,
+                        providerId: providerId,
+                        confirmUnlink: confirmUnlink
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResult('unlinkResult', data, 'success');
+                } else {
+                    displayResult('unlinkResult', data, 'error');
+                }
+            } catch (error) {
+                displayResult('unlinkResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Test 4: Unlink Provider by Email
+        async function unlinkProviderByEmail() {
+            const email = document.getElementById('unlinkEmail').value;
+            const providerId = document.getElementById('unlinkEmailProviderId').value;
+            const confirmUnlink = document.getElementById('confirmUnlinkEmail').checked;
+            
+            if (!email || !providerId) {
+                alert('กรุณาใส่ข้อมูลให้ครบถ้วน');
+                return;
+            }
+
+            if (!confirmUnlink) {
+                alert('กรุณายืนยันการ unlink');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/unlink-provider-by-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        providerId: providerId,
+                        confirmUnlink: confirmUnlink
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResult('unlinkEmailResult', data, 'success');
+                } else {
+                    displayResult('unlinkEmailResult', data, 'error');
+                }
+            } catch (error) {
+                displayResult('unlinkEmailResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Auto-fill UID from URL parameter
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const uid = urlParams.get('uid');
+            if (uid) {
+                document.getElementById('testUid').value = uid;
+                document.getElementById('checkUid').value = uid;
+                document.getElementById('unlinkUid').value = uid;
+            }
+        });
+    </script>
+</body>
+</html>
