@@ -81,3 +81,4 @@ curl http://localhost:3000/api/auth/can-unlink-provider/USER_UID/google.com
 การ unlink provider ใน Firebase ต้องใช้ **Firebase Client SDK** ในฝั่ง frontend เพื่อทำการ unlink จริง และใช้ **Firebase Admin SDK** ในฝั่ง backend เพื่อจัดการ custom claims และ business logic
 
 วิธีนี้เป็นวิธีที่ถูกต้องตาม Firebase documentation และจะทำให้ provider หายไปจาก `providerData` จริงๆ
+

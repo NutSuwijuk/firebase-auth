@@ -558,6 +558,60 @@
         background: #545b62;
       }
 
+      /* Scrollable Container Styles */
+      .scrollable-container {
+        max-height: 300px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 10px;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        background: #f8f9fa;
+        margin-bottom: 20px;
+      }
+
+      .scrollable-container::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .scrollable-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+
+      .scrollable-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+
+      .scrollable-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+
+      .scrollable-results {
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      .scrollable-results::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .scrollable-results::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+
+      .scrollable-results::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+
+      .scrollable-results::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+
       /* Responsive Design */
       @media (max-width: 600px) {
         .container {
@@ -581,6 +635,14 @@
         .provider-actions {
           width: 100%;
           justify-content: flex-end;
+        }
+
+        .scrollable-container {
+          max-height: 250px;
+        }
+
+        .scrollable-results {
+          max-height: 300px;
         }
       }
     </style>
@@ -615,6 +677,19 @@
           <li><strong>Apple Sign In:</strong> เปิดใช้งานใน Firebase Console</li>
         </ol>
         
+        <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 8px; padding: 15px; margin-top: 15px;">
+          <h4 style="margin: 0 0 10px 0; color: #0066cc;">🔗 การเชื่อมต่อ Provider จริง</h4>
+          <p style="margin: 0 0 10px 0; color: #333;">สำหรับการเชื่อมต่อ provider จริง ต้องตั้งค่า OAuth ใน Firebase Console:</p>
+          <ul style="margin: 0; padding-left: 20px; color: #333;">
+            <li><strong>Google:</strong> เปิดใช้งาน Google provider และตั้งค่า OAuth client</li>
+            <li><strong>Apple:</strong> เปิดใช้งาน Apple provider และตั้งค่า Apple Sign-In</li>
+            <li><strong>LINE:</strong> เปิดใช้งาน LINE provider และตั้งค่า LINE Login</li>
+          </ul>
+          <p style="margin: 10px 0 0 0; color: #666; font-size: 12px;">
+            <strong>หมายเหตุ:</strong> ต้องล็อกอินก่อนจึงจะสามารถเชื่อมต่อ provider อื่นๆ ได้
+          </p>
+        </div>
+        
 
       </div>
 
@@ -646,6 +721,61 @@
           <h3>🔗 จัดการ Linked Providers</h3>
           <div id="linkedProvidersList">
             <!-- Linked providers will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Real Provider Linking Section -->
+        <div id="realProviderSection" style="margin-top: 30px; display: none;">
+          <h3>🔗 เชื่อมต่อ Provider</h3>
+          <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #155724;"><strong>✅ Provider จริง:</strong> ปุ่มเหล่านี้จะเชื่อมต่อกับ provider จริงผ่าน Firebase Authentication</p>
+            <p style="margin: 5px 0 0 0; color: #155724; font-size: 12px;">• ต้องตั้งค่า OAuth ใน Firebase Console ก่อนใช้งาน</p>
+            <p style="margin: 0; color: #155724; font-size: 12px;">• ข้อมูลจะถูกเก็บใน Firebase Authentication</p>
+          </div>
+          
+          <!-- Provider Check Button -->
+          <div style="margin-bottom: 20px;">
+            <button id="checkProvidersBtn" class="button secondary" style="width: 100%; margin-bottom: 10px;">
+              🔍 ตรวจสอบ Providers ที่เชื่อมต่อแล้ว
+            </button>
+          </div>
+
+          <!-- Real Provider Buttons -->
+          <div class="button-group scrollable-container">
+            <button id="realGoogleLinkBtn" class="button google" style="margin: 10px; width: calc(100% - 20px);">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDEwLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K"
+                alt="Google"
+                class="provider-icon"
+              />
+              🔗 เชื่อมต่อ Google
+            </button>
+
+            <button id="realAppleLinkBtn" class="button apple" style="margin: 10px; width: calc(100% - 20px);">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE4LjcxIDE5LjVjLS4xOSAwLS4zOC0uMDctLjUyLS4yMWwtNC4yNC00LjI0Yy0uMjgtLjI4LS4yOC0uNzMgMC0xLjAxbDQuMjQtNC4yNGMuMjgtLjI4LjczLS4yOCAxLjAxIDBsNC4yNCA0LjI0Yy4yOC4yOC4yOC43MyAwIDEuMDFsLTQuMjQgNC4yNGMtLjE0LjE0LS4zMy4yMS0uNTIuMjFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuNSAyMS41Yy0uMTkgMC0uMzgtLjA3LS41Mi0uMjFsLTQuMjQtNC4yNGMtLjI4LS4yOC0uMjgtLjczIDAtMS4wMWw0LjI0LTQuMjRjLjI4LS4yOC43My0uMjggMS4wMSAwbDQuMjQgNC4yNGMuMjguMjguMjguNzMgMCAxLjAxbC00LjI0IDQuMjRjLS4xNC4xNC0uMzMuMjEtLjUyLjIxWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=="
+                alt="Apple"
+                class="provider-icon"
+              />
+              🍎 เชื่อมต่อ Apple
+            </button>
+
+            <button id="realLineLinkBtn" class="button line" style="margin: 10px; width: calc(100% - 20px);">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo="
+                alt="LINE"
+                class="provider-icon"
+              />
+              🟩 เชื่อมต่อ LINE
+            </button>
+          </div>
+
+          <!-- Real Provider Results -->
+          <div id="realProviderResults" style="margin-top: 20px; display: none;">
+            <h4>📋 ผลลัพธ์การเชื่อมต่อ Provider </h4>
+            <div id="realProviderDetails" class="scrollable-results" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+              <!-- Real provider details will be populated by JavaScript -->
+            </div>
           </div>
         </div>
       </div>
@@ -791,22 +921,24 @@
     <script type="module">
       // Import Firebase modules
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-      import {
-        getAuth,
-        signInWithCustomToken,
-        connectAuthEmulator,
-        GoogleAuthProvider,
-        signInWithPopup,
-        signInWithRedirect,
-        getRedirectResult,
-        OAuthProvider,
-        signInWithEmailAndPassword,
-        createUserWithEmailAndPassword,
-        sendPasswordResetEmail,
-        updateProfile,
-        onAuthStateChanged,
-        signOut
-      } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+       import {
+         getAuth,
+         signInWithCustomToken,
+         connectAuthEmulator,
+         GoogleAuthProvider,
+         signInWithPopup,
+         signInWithRedirect,
+         getRedirectResult,
+         OAuthProvider,
+         signInWithEmailAndPassword,
+         createUserWithEmailAndPassword,
+         sendPasswordResetEmail,
+         updateProfile,
+         onAuthStateChanged,
+         signOut,
+         linkWithPopup,
+         unlink
+       } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
       // Firebase configuration for production
       const firebaseConfig = {
@@ -1515,12 +1647,35 @@
           }
           if (logoutBtn) logoutBtn.style.display = "block";
           
+          // แสดง real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.style.display = "block";
+            
+            // ซ่อนปุ่ม provider ที่เชื่อมต่อแล้ว (LINE user ไม่มี providerData)
+            updateProviderButtons([]);
+          }
+          
+          
           return;
         }
 
         // Check Firebase Auth
         const currentUser = auth.currentUser;
         if (currentUser) {
+          // ตรวจสอบว่ามี providers หรือไม่
+          if (currentUser.providerData && currentUser.providerData.length === 0) {
+            console.log('⚠️ Firebase user has no providers - signing out');
+            // ถ้าไม่มี providers ให้ออกจากระบบ
+            signOut(auth).then(() => {
+              console.log('✅ User signed out due to no providers');
+              checkUserStatus(); // เรียกใช้ใหม่เพื่อแสดงหน้า login
+            }).catch(error => {
+              console.error('❌ Error signing out user:', error);
+            });
+            return;
+          }
+          
           // Firebase user is signed in
           if (userInfo) userInfo.style.display = "block";
           if (authSection) authSection.style.display = "none";
@@ -1613,6 +1768,19 @@
           }
           if (logoutBtn) logoutBtn.style.display = "block";
           
+          // แสดง real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.style.display = "block";
+            
+            // ตรวจสอบและแสดงข้อมูล providers
+            checkFirebaseProviders(currentUser);
+            
+            // ซ่อนปุ่ม provider ที่เชื่อมต่อแล้ว
+            updateProviderButtons(currentUser.providerData);
+          }
+          
+          
           return;
         }
 
@@ -1650,6 +1818,7 @@
           }
           if (logoutBtn) logoutBtn.style.display = "block";
           
+          
           return;
         }
 
@@ -1658,6 +1827,14 @@
         if (authSection) authSection.style.display = "block";
         if (logoutBtn) logoutBtn.style.display = "none";
         
+        // แสดง real provider section แม้จะไม่มี user ล็อกอิน
+        const realProviderSection = document.getElementById('realProviderSection');
+        if (realProviderSection) {
+          realProviderSection.style.display = "block";
+          
+          // แสดงปุ่มทั้งหมดเมื่อไม่มี user ล็อกอิน
+          updateProviderButtons([]);
+        }
 
       }
 
@@ -1668,7 +1845,7 @@
         const providerNames = {
           'google.com': 'Google',
           'apple.com': 'Apple',
-          'line.com': 'LINE',
+          'oidc.line': 'LINE',
           'facebook.com': 'Facebook',
           'twitter.com': 'Twitter',
           'github.com': 'GitHub',
@@ -1678,6 +1855,11 @@
         };
         return providerNames[providerId] || providerId;
       }
+      
+      // Make functions available globally for HTML onclick
+      window.getProviderDisplayName = getProviderDisplayName;
+      window.getProviderIcon = getProviderIcon;
+      window.getProviderColor = getProviderColor;
 
       // Helper function to get provider icons
       function getProviderIcon(providerId) {
@@ -1708,6 +1890,542 @@
 
       // Check user status on page load
       checkUserStatus();
+      
+
+      // Real Provider Functions
+      // ฟังก์ชันสำหรับการเชื่อมต่อ Provider จริง
+      
+      /**
+       * ตรวจสอบและแสดงข้อมูล providers ที่เชื่อมต่อกับ Firebase user
+       * @param {Object} currentUser - Firebase user object
+       */
+      function checkFirebaseProviders(currentUser) {
+        if (!currentUser) {
+          console.log('❌ No Firebase user found');
+          return;
+        }
+        
+        console.log('🔍 Checking Firebase providers for user:', currentUser.uid);
+        console.log('📧 User email:', currentUser.email);
+        console.log('👤 Display name:', currentUser.displayName);
+        console.log('🖼️ Photo URL:', currentUser.photoURL);
+        console.log('📱 Phone number:', currentUser.phoneNumber);
+        console.log('✅ Email verified:', currentUser.emailVerified);
+        
+        // ตรวจสอบ providerData
+        if (currentUser.providerData && currentUser.providerData.length > 0) {
+          console.log('🔗 Connected providers:', currentUser.providerData.length);
+          
+          currentUser.providerData.forEach((provider, index) => {
+            console.log(`  ${index + 1}. Provider ID: ${provider.providerId}`);
+            console.log(`     - UID: ${provider.uid}`);
+            console.log(`     - Email: ${provider.email || 'N/A'}`);
+            console.log(`     - Display Name: ${provider.displayName || 'N/A'}`);
+            console.log(`     - Photo URL: ${provider.photoURL || 'N/A'}`);
+            console.log(`     - Phone: ${provider.phoneNumber || 'N/A'}`);
+          });
+          
+          // แสดงข้อมูลใน UI
+          displayProviderInfo(currentUser.providerData);
+          
+        } else {
+          console.log('❌ No providers connected to this user');
+          console.log('ℹ️ This might be an email/password account or a new account');
+          
+          // แสดงข้อความว่าไม่มี provider
+          displayProviderInfo([]);
+        }
+      }
+      
+      /**
+       * แสดงข้อมูล providers ใน UI
+       * @param {Array} providerData - ข้อมูล providers
+       */
+      function displayProviderInfo(providerData) {
+        // สร้างหรืออัปเดต provider info section
+        let providerInfoSection = document.getElementById('providerInfoSection');
+        if (!providerInfoSection) {
+          providerInfoSection = document.createElement('div');
+          providerInfoSection.id = 'providerInfoSection';
+          providerInfoSection.style.cssText = `
+            margin-top: 20px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+          `;
+          
+          // แทรกก่อน real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.parentNode.insertBefore(providerInfoSection, realProviderSection);
+          }
+        }
+        
+        if (providerData && providerData.length > 0) {
+          // แสดงข้อมูล providers ที่เชื่อมต่อแล้ว
+          providerInfoSection.innerHTML = `
+            <h4 style="margin: 0 0 15px 0; color: #333;">🔗 Providers ที่เชื่อมต่อแล้ว (${providerData.length})</h4>
+            <div style="display: grid; gap: 10px;">
+              ${providerData.map((provider, index) => `
+                <div style="display: flex; align-items: center; padding: 10px; background: white; border-radius: 6px; border: 1px solid #e9ecef;">
+                  <div style="width: 40px; height: 40px; border-radius: 50%; background-color: ${getProviderColor(provider.providerId)}; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 18px;">
+                    ${getProviderIcon(provider.providerId)}
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-weight: bold; color: #333;">${getProviderDisplayName(provider.providerId)}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 2px;">
+                      ${provider.email || 'N/A'} | ${provider.displayName || 'N/A'}
+                    </div>
+                    <div style="font-size: 10px; color: #999; margin-top: 2px; font-family: monospace;">
+                      ${provider.providerId}
+                    </div>
+                  </div>
+                   <div style="display: flex; align-items: center; gap: 10px;">
+                     <div style="color: #28a745; font-size: 12px; font-weight: bold;">
+                       ✅ เชื่อมต่อแล้ว
+                     </div>
+                     <button 
+                       onclick="unlinkProviderFromUI('${provider.providerId}', '${getProviderDisplayName(provider.providerId)}')"
+                       style="
+                         background: #dc3545; 
+                         color: white; 
+                         border: none; 
+                         border-radius: 4px; 
+                         padding: 4px 8px; 
+                         font-size: 10px; 
+                         cursor: pointer;
+                         transition: background-color 0.2s;
+                       "
+                       onmouseover="this.style.backgroundColor='#c82333'"
+                       onmouseout="this.style.backgroundColor='#dc3545'"
+                     >
+                       🗑️ ยกเลิก
+                     </button>
+                   </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        } else {
+          // แสดงข้อความว่าไม่มี provider
+          providerInfoSection.innerHTML = `
+            <h4 style="margin: 0 0 15px 0; color: #333;">🔗 Providers ที่เชื่อมต่อแล้ว</h4>
+            <div style="text-align: center; padding: 20px; color: #666;">
+              <div style="font-size: 24px; margin-bottom: 10px;">📭</div>
+              <div>ยังไม่มี provider เชื่อมต่อ</div>
+              <div style="font-size: 12px; margin-top: 5px; color: #999;">
+                ใช้ปุ่มด้านล่างเพื่อเชื่อมต่อ provider ต่างๆ
+              </div>
+            </div>
+          `;
+        }
+      }
+      
+      /**
+       * อัปเดตปุ่ม provider ตาม providers ที่เชื่อมต่อแล้ว
+       * @param {Array} providerData - ข้อมูล providers ที่เชื่อมต่อ
+       */
+      function updateProviderButtons(providerData) {
+        if (!providerData || !Array.isArray(providerData)) {
+          return;
+        }
+        
+        // เก็บ provider IDs ที่เชื่อมต่อแล้ว
+        const connectedProviders = providerData.map(provider => provider.providerId);
+        
+        // ซ่อนปุ่ม Google ถ้าเชื่อมต่อแล้ว
+        const googleBtn = document.getElementById('realGoogleLinkBtn');
+        if (googleBtn) {
+          if (connectedProviders.includes('google.com')) {
+            googleBtn.style.display = 'none';
+            console.log('✅ Google provider already connected - hiding button');
+          } else {
+            googleBtn.style.display = 'block';
+          }
+        }
+        
+        // ซ่อนปุ่ม Apple ถ้าเชื่อมต่อแล้ว
+        const appleBtn = document.getElementById('realAppleLinkBtn');
+        if (appleBtn) {
+          if (connectedProviders.includes('apple.com')) {
+            appleBtn.style.display = 'none';
+            console.log('✅ Apple provider already connected - hiding button');
+          } else {
+            appleBtn.style.display = 'block';
+          }
+        }
+        
+        // ซ่อนปุ่ม LINE ถ้าเชื่อมต่อแล้ว
+        const lineBtn = document.getElementById('realLineLinkBtn');
+        if (lineBtn) {
+          if (connectedProviders.includes('oidc.line')) {
+            lineBtn.style.display = 'none';
+            console.log('✅ LINE provider already connected - hiding button');
+          } else {
+            lineBtn.style.display = 'block';
+          }
+        }
+        
+        // ตรวจสอบว่ามี provider ที่ยังไม่ได้เชื่อมต่อหรือไม่
+        const allProviders = ['google.com', 'apple.com', 'oidc.line'];
+        const remainingProviders = allProviders.filter(provider => !connectedProviders.includes(provider));
+        
+        if (remainingProviders.length === 0) {
+          // ถ้าเชื่อมต่อครบทุก provider แล้ว ให้ซ่อนส่วน real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.style.display = 'none';
+            console.log('✅ All providers connected - hiding real provider section');
+          }
+        }
+      }
+      
+      
+      /**
+       * Wrapper function for unlinkProvider to match UI usage
+       * @param {string} providerId - ID ของ provider ที่ต้องการยกเลิก
+       * @param {string} providerName - ชื่อของ provider
+       */
+      window.unlinkProviderFromUI = async function(providerId, providerName) {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะยกเลิกการเชื่อมต่อ provider');
+            return;
+          }
+          
+          // ยืนยันการยกเลิก
+          const confirmMessage = `คุณแน่ใจหรือไม่ที่จะยกเลิกการเชื่อมต่อ ${providerName}?\n\n⚠️ หมายเหตุ: คุณสามารถยกเลิกได้แม้จะเหลือ provider เดียว`;
+          if (!confirm(confirmMessage)) {
+            return;
+          }
+          
+          console.log(`🗑️ Unlinking provider: ${providerId} (${providerName})`);
+          
+          // หา provider ที่ต้องการยกเลิก
+          const providerToUnlink = currentUser.providerData.find(provider => provider.providerId === providerId);
+          if (!providerToUnlink) {
+            alert(`ไม่พบ ${providerName} provider ที่เชื่อมต่ออยู่`);
+            return;
+          }
+          
+          // ยกเลิกการเชื่อมต่อ provider
+          await unlink(currentUser, providerId);
+          
+          console.log(`✅ Successfully unlinked ${providerName} provider`);
+          
+          // แสดงข้อความสำเร็จ
+          alert(`✅ ยกเลิกการเชื่อมต่อ ${providerName} สำเร็จ!`);
+          
+          // อัปเดต UI โดยไม่ต้อง reload
+          checkFirebaseProviders(currentUser);
+          updateProviderButtons(currentUser.providerData);
+          
+          // ตรวจสอบว่ายังมี provider เหลืออยู่หรือไม่
+          // ใช้ currentUser.providerData หลังจาก unlink แล้ว
+          const updatedUser = auth.currentUser;
+          const remainingProviders = updatedUser ? updatedUser.providerData : [];
+          
+          console.log('Remaining providers after unlink:', remainingProviders.length);
+          
+          if (remainingProviders.length === 0) {
+            console.log('⚠️ No providers remaining - signing out user');
+            alert('⚠️ คุณได้ยกเลิกการเชื่อมต่อ provider สุดท้ายแล้ว\n\nระบบจะออกจากระบบอัตโนมัติ');
+            
+            // เตะผู้ใช้ออกจากระบบ
+            try {
+              await signOut(auth);
+              console.log('✅ User signed out successfully');
+              
+              // อัปเดต UI
+              checkUserStatus();
+              
+              // แสดงข้อความแจ้งเตือน
+              setTimeout(() => {
+                alert('🔓 คุณได้ออกจากระบบแล้ว\n\nกรุณาล็อกอินใหม่เพื่อเข้าถึงบัญชี');
+              }, 1000);
+              
+            } catch (signOutError) {
+              console.error('❌ Error signing out user:', signOutError);
+              alert('เกิดข้อผิดพลาดในการออกจากระบบ กรุณา refresh หน้าเว็บ');
+            }
+          }
+          
+        } catch (error) {
+          console.error('❌ Error unlinking provider:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/no-such-provider') {
+            alert(`${providerName} provider ไม่ได้เชื่อมต่อกับบัญชีนี้`);
+          } else if (error.code === 'auth/requires-recent-login') {
+            alert('กรุณาล็อกอินใหม่ก่อนที่จะยกเลิกการเชื่อมต่อ provider');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการยกเลิก ${providerName}: ${error.message}`);
+          }
+        }
+      };
+      
+      /**
+       * Real Google Provider Link
+       * เชื่อมต่อ Google Provider จริงผ่าน Firebase Authentication
+       */
+      async function realGoogleProviderLink() {
+        try {
+          console.log('🔗 Real Google Provider Link started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ใช้ Firebase Auth เพื่อเชื่อมต่อ Google
+          const googleProvider = new GoogleAuthProvider();
+          googleProvider.addScope('email');
+          googleProvider.addScope('profile');
+          
+          // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
+          const result = await linkWithPopup(currentUser, googleProvider);
+          console.log('✅ Google provider linked successfully:', result);
+          
+               // แสดงผลลัพธ์
+               showRealProviderResult({
+                 providerId: 'google.com',
+                 providerName: 'Google',
+                 providerIcon: '🔑',
+                 email: result.user.email,
+                 displayName: result.user.displayName,
+                 photoURL: result.user.photoURL,
+                 uid: result.user.uid,
+                 linkedAt: new Date().toISOString(),
+                 isReal: true
+               });
+               
+               // แสดงข้อความสำเร็จ
+               alert('✅ เชื่อมต่อ Google สำเร็จ!');
+          
+               // อัปเดตปุ่ม provider
+               updateProviderButtons(result.user.providerData);
+               
+               // อัปเดต UI
+               window.location.reload();
+          
+        } catch (error) {
+          console.error('❌ Real Google Provider link error:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('Google account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('Google account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/popup-closed-by-user') {
+            alert('การเชื่อมต่อ Google ถูกยกเลิกโดยผู้ใช้');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ Google: ${error.message}`);
+          }
+        }
+      }
+      
+      /**
+       * Real Apple Provider Link
+       * เชื่อมต่อ Apple Provider จริงผ่าน Firebase Authentication
+       */
+      async function realAppleProviderLink() {
+        try {
+          console.log('🍎 Real Apple Provider Link started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ใช้ Firebase Auth เพื่อเชื่อมต่อ Apple
+          const appleProvider = new OAuthProvider('apple.com');
+          appleProvider.addScope('email');
+          appleProvider.addScope('name');
+          
+          // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
+          const result = await linkWithPopup(currentUser, appleProvider);
+          console.log('✅ Apple provider linked successfully:', result);
+          
+               // แสดงผลลัพธ์
+               showRealProviderResult({
+                 providerId: 'apple.com',
+                 providerName: 'Apple',
+                 providerIcon: '🍎',
+                 email: result.user.email,
+                 displayName: result.user.displayName,
+                 photoURL: result.user.photoURL,
+                 uid: result.user.uid,
+                 linkedAt: new Date().toISOString(),
+                 isReal: true
+               });
+               
+               // แสดงข้อความสำเร็จ
+               alert('✅ เชื่อมต่อ Apple สำเร็จ!');
+          
+               // อัปเดตปุ่ม provider
+               updateProviderButtons(result.user.providerData);
+               
+               // อัปเดต UI
+               window.location.reload();
+          
+        } catch (error) {
+          console.error('❌ Real Apple Provider link error:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('Apple account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('Apple account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/popup-closed-by-user') {
+            alert('การเชื่อมต่อ Apple ถูกยกเลิกโดยผู้ใช้');
+          } else if (error.code === 'auth/operation-not-allowed') {
+            alert('Apple Sign-In ไม่ได้เปิดใช้งานใน Firebase Console');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ Apple: ${error.message}`);
+          }
+        }
+      }
+      
+      /**
+       * Real LINE Provider Link
+       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication
+       */
+      async function realLineProviderLink() {
+        try {
+          console.log('🟩 Real LINE Provider Link started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ใช้ Firebase Auth เพื่อเชื่อมต่อ LINE
+          const lineProvider = new OAuthProvider('oidc.line');
+          lineProvider.addScope('profile');
+          lineProvider.addScope('openid');
+          lineProvider.addScope('email');
+          
+          // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
+          const result = await linkWithPopup(currentUser, lineProvider);
+          console.log('✅ LINE provider linked successfully:', result);
+          
+               // แสดงผลลัพธ์
+               showRealProviderResult({
+                 providerId: 'oidc.line',
+                 providerName: 'LINE',
+                 providerIcon: '🟩',
+                 email: result.user.email,
+                 displayName: result.user.displayName,
+                 photoURL: result.user.photoURL,
+                 uid: result.user.uid,
+                 linkedAt: new Date().toISOString(),
+                 isReal: true
+               });
+               
+               // แสดงข้อความสำเร็จ
+               alert('✅ เชื่อมต่อ LINE สำเร็จ!');
+          
+               // อัปเดตปุ่ม provider
+               updateProviderButtons(result.user.providerData);
+               
+               // อัปเดต UI
+               window.location.reload();
+          
+        } catch (error) {
+          console.error('❌ Real LINE Provider link error:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('LINE account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('LINE account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/popup-closed-by-user') {
+            alert('การเชื่อมต่อ LINE ถูกยกเลิกโดยผู้ใช้');
+          } else if (error.code === 'auth/operation-not-allowed') {
+            alert('LINE Login ไม่ได้เปิดใช้งานใน Firebase Console');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ LINE: ${error.message}`);
+          }
+        }
+      }
+      
+      /**
+       * แสดงผลลัพธ์การเชื่อมต่อ Provider จริง
+       * @param {Object} providerData - ข้อมูล provider ที่เชื่อมต่อ
+       */
+      function showRealProviderResult(providerData) {
+        const realProviderResults = document.getElementById('realProviderResults');
+        const realProviderDetails = document.getElementById('realProviderDetails');
+        
+        if (!realProviderResults || !realProviderDetails) {
+          console.error('❌ Real provider results elements not found');
+          return;
+        }
+        
+        // แสดงผลลัพธ์
+        realProviderResults.style.display = 'block';
+        
+        // สร้าง HTML สำหรับแสดงข้อมูล
+        realProviderDetails.innerHTML = `
+          <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background-color: ${getProviderColor(providerData.providerId)}; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 24px;">
+              ${providerData.providerIcon}
+            </div>
+            <div>
+              <h5 style="margin: 0; color: #333;">${providerData.providerName} Provider</h5>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">เชื่อมต่อแล้วเมื่อ: ${new Date(providerData.linkedAt).toLocaleString('th-TH')}</p>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div>
+              <strong>Email:</strong><br>
+              <span style="color: #666;">${providerData.email || 'N/A'}</span>
+            </div>
+            <div>
+              <strong>Display Name:</strong><br>
+              <span style="color: #666;">${providerData.displayName || 'N/A'}</span>
+            </div>
+            <div>
+              <strong>Provider ID:</strong><br>
+              <span style="color: #666; font-family: monospace; font-size: 12px;">${providerData.providerId}</span>
+            </div>
+            <div>
+              <strong>UID:</strong><br>
+              <span style="color: #666; font-family: monospace; font-size: 12px;">${providerData.uid}</span>
+            </div>
+          </div>
+          
+          ${providerData.photoURL ? `
+          <div style="margin-bottom: 15px;">
+            <strong>Profile Picture:</strong><br>
+            <img src="${providerData.photoURL}" alt="Profile" style="width: 60px; height: 60px; border-radius: 50%; margin-top: 5px;">
+          </div>
+          ` : ''}
+          
+          <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 10px; margin-top: 15px;">
+            <p style="margin: 0; color: #155724; font-size: 14px;">
+              <strong>✅ Provider จริงเชื่อมต่อสำเร็จ!</strong><br>
+              ข้อมูลนี้ถูกเก็บใน Firebase Authentication และสามารถใช้ได้จริง
+            </p>
+          </div>
+        `;
+        
+        // อัปเดต UI ให้แสดง real provider section
+        const realProviderSection = document.getElementById('realProviderSection');
+        if (realProviderSection) {
+          realProviderSection.style.display = 'block';
+        }
+      }
+
 
       // Linked Providers Management Functions
 
@@ -2034,6 +2752,47 @@
           }
         }
       });
+
+      // Real Provider Event Listeners
+      // เพิ่ม event listeners สำหรับปุ่ม provider จริง
+      
+      // Check Providers Button
+      const checkProvidersBtn = document.getElementById('checkProvidersBtn');
+      if (checkProvidersBtn) {
+        checkProvidersBtn.addEventListener('click', () => {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            checkFirebaseProviders(currentUser);
+          } else {
+            alert('กรุณาล็อกอินก่อนที่จะตรวจสอบ providers');
+          }
+        });
+      }
+      
+      // Real Google Provider Link Button
+      const realGoogleLinkBtn = document.getElementById('realGoogleLinkBtn');
+      if (realGoogleLinkBtn) {
+        realGoogleLinkBtn.addEventListener('click', async () => {
+          await realGoogleProviderLink();
+        });
+      }
+      
+      // Real Apple Provider Link Button
+      const realAppleLinkBtn = document.getElementById('realAppleLinkBtn');
+      if (realAppleLinkBtn) {
+        realAppleLinkBtn.addEventListener('click', async () => {
+          await realAppleProviderLink();
+        });
+      }
+      
+      // Real LINE Provider Link Button
+      const realLineLinkBtn = document.getElementById('realLineLinkBtn');
+      if (realLineLinkBtn) {
+        realLineLinkBtn.addEventListener('click', async () => {
+          await realLineProviderLink();
+        });
+      }
+
     </script>
   </body>
 </html>

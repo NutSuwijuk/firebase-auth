@@ -38,8 +38,10 @@ app.get('/api/health', (req, res) => {
 
 // LINE Login Configuration
 const LINE_CONFIG = {
-  CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
-  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
+  // CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
+  // CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
+  CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2008286810",
+  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "49979452bb7abd3bc9fa6121423cec8e",
   REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://localhost:3000/index.html",
   SIMPLE_REDIRECT_URI: process.env.LINE_SIMPLE_REDIRECT_URI || "http://localhost:3000/index.html"
 };
