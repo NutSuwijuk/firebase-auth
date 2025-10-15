@@ -1963,9 +1963,23 @@
         }
         
         if (providerData && providerData.length > 0) {
+          // ตรวจสอบ email ที่แตกต่างกัน
+          const emails = providerData.map(p => p.email).filter(email => email);
+          const uniqueEmails = [...new Set(emails)];
+          const hasDifferentEmails = uniqueEmails.length > 1;
+          
           // แสดงข้อมูล providers ที่เชื่อมต่อแล้ว
           providerInfoSection.innerHTML = `
             <h4 style="margin: 0 0 15px 0; color: #333;">🔗 Providers ที่เชื่อมต่อแล้ว (${providerData.length})</h4>
+            ${hasDifferentEmails ? `
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 10px; margin-bottom: 15px;">
+              <div style="color: #856404; font-size: 12px; font-weight: bold; margin-bottom: 5px;">ℹ️ ข้อมูล Email</div>
+              <div style="color: #856404; font-size: 11px;">
+                ระบบรองรับการเชื่อมต่อ providers ที่มี email ต่างกัน<br>
+                📧 Emails: ${uniqueEmails.join(', ')}
+              </div>
+            </div>
+            ` : ''}
             <div style="display: grid; gap: 10px;">
               ${providerData.map((provider, index) => `
                 <div style="display: flex; align-items: center; padding: 10px; background: white; border-radius: 6px; border: 1px solid #e9ecef;">
@@ -1975,10 +1989,10 @@
                   <div style="flex: 1;">
                     <div style="font-weight: bold; color: #333;">${getProviderDisplayName(provider.providerId)}</div>
                     <div style="font-size: 12px; color: #666; margin-top: 2px;">
-                      ${provider.email || 'N/A'} | ${provider.displayName || 'N/A'}
+                      📧 ${provider.email || 'N/A'} | 👤 ${provider.displayName || 'N/A'}
                     </div>
                     <div style="font-size: 10px; color: #999; margin-top: 2px; font-family: monospace;">
-                      ${provider.providerId}
+                      🔗 ${provider.providerId}
                     </div>
                   </div>
                    <div style="display: flex; align-items: center; gap: 10px;">
@@ -2167,6 +2181,20 @@
       };
       
       /**
+       * ตรวจสอบ email ซ้ำกันใน providers
+       * @param {string} newEmail - email ใหม่ที่จะ link
+       * @param {Array} existingProviders - providers ที่มีอยู่
+       * @returns {boolean} true ถ้า email ซ้ำกัน
+       */
+      function checkDuplicateEmail(newEmail, existingProviders) {
+        if (!newEmail || !existingProviders) return false;
+        
+        return existingProviders.some(provider => 
+          provider.email && provider.email.toLowerCase() === newEmail.toLowerCase()
+        );
+      }
+      
+      /**
        * Real Google Provider Link
        * เชื่อมต่อ Google Provider จริงผ่าน Firebase Authentication
        */
@@ -2181,6 +2209,10 @@
             return;
           }
           
+          // ตรวจสอบ email ซ้ำกัน
+          const existingProviders = currentUser.providerData || [];
+          console.log('Existing providers:', existingProviders.map(p => ({ id: p.providerId, email: p.email })));
+          
           // ใช้ Firebase Auth เพื่อเชื่อมต่อ Google
           const googleProvider = new GoogleAuthProvider();
           googleProvider.addScope('email');
@@ -2189,6 +2221,15 @@
           // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
           const result = await linkWithPopup(currentUser, googleProvider);
           console.log('✅ Google provider linked successfully:', result);
+          
+          // ตรวจสอบ email ซ้ำกันหลัง link
+          const newEmail = result.user.email;
+          if (checkDuplicateEmail(newEmail, existingProviders)) {
+            console.log('⚠️ Duplicate email detected, but link was successful');
+            alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+          } else {
+            console.log('✅ New email linked successfully:', newEmail);
+          }
           
                // แสดงผลลัพธ์
                showRealProviderResult({
@@ -2251,6 +2292,16 @@
           // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
           const result = await linkWithPopup(currentUser, appleProvider);
           console.log('✅ Apple provider linked successfully:', result);
+          
+          // ตรวจสอบ email ซ้ำกันหลัง link
+          const newEmail = result.user.email;
+          const existingProviders = currentUser.providerData || [];
+          if (checkDuplicateEmail(newEmail, existingProviders)) {
+            console.log('⚠️ Duplicate email detected, but link was successful');
+            alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+          } else {
+            console.log('✅ New email linked successfully:', newEmail);
+          }
           
                // แสดงผลลัพธ์
                showRealProviderResult({
@@ -2316,6 +2367,16 @@
           // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
           const result = await linkWithPopup(currentUser, lineProvider);
           console.log('✅ LINE provider linked successfully:', result);
+          
+          // ตรวจสอบ email ซ้ำกันหลัง link
+          const newEmail = result.user.email;
+          const existingProviders = currentUser.providerData || [];
+          if (checkDuplicateEmail(newEmail, existingProviders)) {
+            console.log('⚠️ Duplicate email detected, but link was successful');
+            alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+          } else {
+            console.log('✅ New email linked successfully:', newEmail);
+          }
           
                // แสดงผลลัพธ์
                showRealProviderResult({
