@@ -1,0 +1,2859 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Firebase + Backend Integration (Simple) - Account Linking</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 800px;
+        width: 100%;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: #333;
+        font-size: 28px;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        color: #666;
+        font-size: 16px;
+      }
+
+      .info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 20px 0;
+      }
+
+      .auth-section {
+        margin-bottom: 30px;
+      }
+
+      .auth-section h2 {
+        color: #333;
+        font-size: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .button-group {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .button {
+        padding: 15px 20px;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        text-decoration: none;
+        margin: 5px;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+      }
+
+      .button.google {
+        background: #4285f4;
+        color: white;
+      }
+
+      .button.google:hover {
+        background: #3367d6;
+      }
+
+      .button.line {
+        background: #00b900;
+        color: white;
+      }
+
+      .button.line:hover {
+        background: #009900;
+      }
+
+      .button.line-simple {
+        background: #00B900;
+        color: white;
+      }
+
+      .button.line-simple:hover {
+        background: #009900;
+      }
+
+      /* LINE Login Simple Result Styles */
+      .line-simple-result {
+        margin-top: 2rem;
+        padding: 1rem;
+        background: #e9ecef;
+        border-radius: 5px;
+        text-align: left;
+        max-width: 600px;
+        display: none;
+      }
+
+      .line-simple-result h3 {
+        margin-top: 0;
+      }
+
+      .line-simple-result pre {
+        white-space: pre-wrap;
+        word-break: break-all;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        font-size: 12px;
+        font-family: monospace;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .line-simple-error {
+        display: none;
+        color: red;
+        margin-top: 1rem;
+        padding: 10px;
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 5px;
+      }
+
+      .button.apple {
+        background: #000;
+        color: white;
+      }
+
+      .button.apple:hover {
+        background: #333;
+      }
+
+      .button.email {
+        background: #28a745;
+        color: white;
+      }
+
+      .button.email:hover {
+        background: #218838;
+      }
+
+      .button.secondary {
+        background: #6c757d;
+        color: white;
+      }
+
+      .button.secondary:hover {
+        background: #545b62;
+      }
+
+      .user-info {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        display: none;
+      }
+
+      .user-info.show {
+        display: block;
+      }
+
+      .user-info h3 {
+        color: #333;
+        margin-bottom: 15px;
+      }
+
+      .user-detail {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .user-detail strong {
+        min-width: 120px;
+        color: #555;
+      }
+
+      .profile-pic {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        margin-right: 15px;
+      }
+
+      .backend-info {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #e9ecef;
+        border-radius: 5px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+
+      .login-form {
+        display: block;
+      }
+
+      .email-auth-form {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        display: none;
+      }
+
+      .email-auth-form.show {
+        display: block;
+      }
+
+      .form-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      .form-row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .toggle-form {
+        text-align: center;
+        margin-top: 15px;
+      }
+
+      .toggle-form button {
+        background: none;
+        border: none;
+        color: #007bff;
+        cursor: pointer;
+        text-decoration: underline;
+        font-size: 14px;
+      }
+
+      .toggle-form button:hover {
+        color: #0056b3;
+      }
+
+      .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        display: none;
+      }
+
+      .error-message.show {
+        display: block;
+      }
+
+      .success-message {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        display: none;
+      }
+
+      .success-message.show {
+        display: block;
+      }
+
+      /* Dialog Styles */
+      .dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .dialog-overlay.show {
+        display: flex;
+      }
+
+      .dialog {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      .dialog h3 {
+        color: #333;
+        margin-bottom: 15px;
+        font-size: 20px;
+      }
+
+      .dialog p {
+        color: #666;
+        margin-bottom: 20px;
+        line-height: 1.5;
+      }
+
+      .dialog .email-highlight {
+        background: #fff3cd;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: 600;
+        color: #856404;
+      }
+
+      .button-container {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .button-container button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .button-container button.primary {
+        background: #007bff;
+        color: white;
+      }
+
+      .button-container button.primary:hover {
+        background: #0056b3;
+      }
+
+      .button-container button.secondary {
+        background: #6c757d;
+        color: white;
+      }
+
+      .button-container button.secondary:hover {
+        background: #545b62;
+      }
+
+      /* Provider Icons */
+      .provider-icon {
+        width: 20px;
+        height: 20px;
+      }
+
+      /* Linked Providers Styles */
+      .linked-provider-card {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.3s ease;
+      }
+
+      .linked-provider-card:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .provider-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .provider-icon-large {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+      }
+
+      .provider-details h4 {
+        margin: 0 0 5px 0;
+        color: #333;
+        font-size: 16px;
+      }
+
+      .provider-details p {
+        margin: 0;
+        color: #666;
+        font-size: 14px;
+      }
+
+      .provider-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .unlink-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .unlink-btn:hover {
+        background: #c82333;
+        transform: translateY(-1px);
+      }
+
+      .unlink-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .provider-status {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .provider-status.primary {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .provider-status.linked {
+        background: #d1ecf1;
+        color: #0c5460;
+      }
+
+      .provider-status.last {
+        background: #f8d7da;
+        color: #721c24;
+      }
+
+      .unlink-confirmation {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 10px;
+        display: none;
+      }
+
+      .unlink-confirmation.show {
+        display: block;
+      }
+
+      .confirmation-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .confirmation-buttons button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .confirm-unlink {
+        background: #dc3545;
+        color: white;
+      }
+
+      .confirm-unlink:hover {
+        background: #c82333;
+      }
+
+      .cancel-unlink {
+        background: #6c757d;
+        color: white;
+      }
+
+      .cancel-unlink:hover {
+        background: #545b62;
+      }
+
+      /* Scrollable Container Styles */
+      .scrollable-container {
+        max-height: 300px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 10px;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        background: #f8f9fa;
+        margin-bottom: 20px;
+      }
+
+      .scrollable-container::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .scrollable-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+
+      .scrollable-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+
+      .scrollable-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+
+      .scrollable-results {
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      .scrollable-results::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .scrollable-results::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+
+      .scrollable-results::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+
+      .scrollable-results::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 600px) {
+        .container {
+          padding: 20px;
+        }
+
+        .button-container {
+          flex-direction: column;
+        }
+
+        .button-container button {
+          width: 100%;
+        }
+
+        .linked-provider-card {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 15px;
+        }
+
+        .provider-actions {
+          width: 100%;
+          justify-content: flex-end;
+        }
+
+        .scrollable-container {
+          max-height: 250px;
+        }
+
+        .scrollable-results {
+          max-height: 300px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🔥 Firebase + Backend Integration (Simple)</h1>
+        <p>
+          ทดสอบการเชื่อมต่อ Firebase Authentication กับ Backend API + Account
+          Linking
+        </p>
+      </div>
+
+
+
+      <div class="info">
+        <h3>📋 Setup Instructions:</h3>
+        <ol>
+          <li>
+            <strong>Deploy Functions:</strong>
+            <code>firebase deploy --only functions</code>
+          </li>
+          <li>
+            <strong>Firebase Config:</strong> ตรวจสอบ Firebase Console settings
+          </li>
+          <li>
+            <strong>Authorized Domains:</strong> เพิ่ม localhost และ 127.0.0.1
+          </li>
+          <li><strong>Google OAuth:</strong> เปิดใช้งานใน Firebase Console</li>
+          <li><strong>LINE Login:</strong> เปิดใช้งานใน Firebase Console</li>
+          <li><strong>Apple Sign In:</strong> เปิดใช้งานใน Firebase Console</li>
+        </ol>
+        
+        <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 8px; padding: 15px; margin-top: 15px;">
+          <h4 style="margin: 0 0 10px 0; color: #0066cc;">🔗 การเชื่อมต่อ Provider จริง</h4>
+          <p style="margin: 0 0 10px 0; color: #333;">สำหรับการเชื่อมต่อ provider จริง ต้องตั้งค่า OAuth ใน Firebase Console:</p>
+          <ul style="margin: 0; padding-left: 20px; color: #333;">
+            <li><strong>Google:</strong> เปิดใช้งาน Google provider และตั้งค่า OAuth client</li>
+            <li><strong>Apple:</strong> เปิดใช้งาน Apple provider และตั้งค่า Apple Sign-In</li>
+            <li><strong>LINE:</strong> เปิดใช้งาน LINE provider และตั้งค่า LINE Login</li>
+          </ul>
+          <p style="margin: 10px 0 0 0; color: #666; font-size: 12px;">
+            <strong>หมายเหตุ:</strong> ต้องล็อกอินก่อนจึงจะสามารถเชื่อมต่อ provider อื่นๆ ได้
+          </p>
+        </div>
+        
+
+      </div>
+
+      <!-- User Information -->
+      <div id="userInfo" class="user-info">
+        <h3>👤 ข้อมูลผู้ใช้</h3>
+        <div id="userDetails">
+          <!-- User details will be populated by JavaScript -->
+        </div>
+
+        <div class="backend-info">
+          <h4>🔄 Backend Sync Status</h4>
+          <div id="backendSyncInfo"></div>
+        </div>
+
+        <div style="margin-top: 20px">
+          <button
+            id="switchAccountBtn"
+            class="button secondary"
+            style="display: none"
+          >
+            🔄 Switch Google Account
+          </button>
+          <button id="logoutBtn" class="button secondary">🚪 Sign Out</button>
+        </div>
+
+        <!-- Linked Providers Management Section -->
+        <div id="linkedProvidersSection" style="margin-top: 30px; display: none;">
+          <h3>🔗 จัดการ Linked Providers</h3>
+          <div id="linkedProvidersList">
+            <!-- Linked providers will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Real Provider Linking Section -->
+        <div id="realProviderSection" style="margin-top: 30px; display: none;">
+          <h3>🔗 เชื่อมต่อ Provider</h3>
+          <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #155724;"><strong>✅ Provider จริง:</strong> ปุ่มเหล่านี้จะเชื่อมต่อกับ provider จริงผ่าน Firebase Authentication</p>
+            <p style="margin: 5px 0 0 0; color: #155724; font-size: 12px;">• ต้องตั้งค่า OAuth ใน Firebase Console ก่อนใช้งาน</p>
+            <p style="margin: 0; color: #155724; font-size: 12px;">• ข้อมูลจะถูกเก็บใน Firebase Authentication</p>
+          </div>
+          
+          <!-- Provider Check Button -->
+          <div style="margin-bottom: 20px;">
+            <button id="checkProvidersBtn" class="button secondary" style="width: 100%; margin-bottom: 10px;">
+              🔍 ตรวจสอบ Providers ที่เชื่อมต่อแล้ว
+            </button>
+          </div>
+
+          <!-- Real Provider Buttons -->
+          <div class="button-group scrollable-container">
+            <button id="realGoogleLinkBtn" class="button google" style="margin: 10px; width: calc(100% - 20px);">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDEwLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K"
+                alt="Google"
+                class="provider-icon"
+              />
+              🔗 เชื่อมต่อ Google
+            </button>
+
+            <button id="realAppleLinkBtn" class="button apple" style="margin: 10px; width: calc(100% - 20px);">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE4LjcxIDE5LjVjLS4xOSAwLS4zOC0uMDctLjUyLS4yMWwtNC4yNC00LjI0Yy0uMjgtLjI4LS4yOC0uNzMgMC0xLjAxbDQuMjQtNC4yNGMuMjgtLjI4LjczLS4yOCAxLjAxIDBsNC4yNCA0LjI0Yy4yOC4yOC4yOC43MyAwIDEuMDFsLTQuMjQgNC4yNGMtLjE0LjE0LS4zMy4yMS0uNTIuMjFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuNSAyMS41Yy0uMTkgMC0uMzgtLjA3LS41Mi0uMjFsLTQuMjQtNC4yNGMtLjI4LS4yOC0uMjgtLjczIDAtMS4wMWw0LjI0LTQuMjRjLjI4LS4yOC43My0uMjggMS4wMSAwbDQuMjQgNC4yNGMuMjguMjguMjguNzMgMCAxLjAxbC00LjI0IDQuMjRjLS4xNC4xNC0uMzMuMjEtLjUyLjIxWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=="
+                alt="Apple"
+                class="provider-icon"
+              />
+              🍎 เชื่อมต่อ Apple
+            </button>
+
+            <button id="realLineLinkBtn" class="button line" style="margin: 10px; width: calc(100% - 20px);">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo="
+                alt="LINE"
+                class="provider-icon"
+              />
+              🟩 เชื่อมต่อ LINE
+            </button>
+          </div>
+
+          <!-- Real Provider Results -->
+          <div id="realProviderResults" style="margin-top: 20px; display: none;">
+            <h4>📋 ผลลัพธ์การเชื่อมต่อ Provider </h4>
+            <div id="realProviderDetails" class="scrollable-results" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+              <!-- Real provider details will be populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Authentication Section -->
+      <div id="authSection" class="auth-section">
+        <h2>🔐 เข้าสู่ระบบ</h2>
+        <!-- Firebase Authentication Methods -->
+        <div class="button-group">
+          <h4 style="color: #333; margin-bottom: 15px; text-align: center; font-size: 16px;">🔥 Firebase Authentication</h4>
+          
+          <button id="googleLoginBtn" class="button google">
+            <img
+              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIyLjU2IDEyLjI1QzIyLjU2IDExLjQ3IDIyLjQ5IDEwLjcyIDIyLjM2IDEwSDEyVjE0LjI1SDE3LjkyQzE3LjY2IDE1LjYzIDE2LjkyIDE2Ljc5IDE1LjY4IDE3LjU3VjIwLjI2SDE5LjY4QzIxLjU2IDE4LjYzIDIyLjU2IDE1LjY5IDIyLjU2IDEyLjI1WiIgZmlsbD0iIzQyODVGNDQiLz4KPHBhdGggZD0iTTEyIDIzQzE1LjI0IDIzIDE3Ljk1IDIxLjk5IDE5LjY4IDIwLjI2TDE1LjY4IDE3LjU3QzE0Ljg0IDE4LjA5IDEzLjY5IDE4LjQzIDEyIDE4LjQzQzguODcgMTguNDMgNi4yMiAxNi4zNiA1LjQ2IDEzLjU4SDEuMzNWMTYuNDVDMy4wOCAyMS4zNyA3LjIgMjMgMTIgMjNaIiBmaWxsPSIjMzRBODUzIi8+CjxwYXRoIGQ9Ik01LjQ2IDEzLjU4QzUuMjYgMTIuOTIgNS4xNiAxMi4yMiA1LjE2IDEwLjVDNS4xNiAxMC43OCA1LjI2IDEwLjA4IDUuNDYgOS40MlY2LjU1SDEuMzNDMS4xMiA3LjMzIDEgOC4xNCAxIDlDMSA5Ljg2IDEuMTIgMTAuNjcgMS4zMyAxMS40NUw1LjQ2IDEzLjU4WiIgZmlsbD0iI0ZCQ0MwNSIvPgo8cGF0aCBkPSJNMTIgNS4wN0MxMy42MiA1LjA3IDE1LjA2IDUuNjQgMTYuMTIgNi42OEwxOS4wNCAzLjc2QzE3Ljk1IDIuNzUgMTUuMjQgMSAxMiAxQzcuMiAxIDMuMDggMi42MyAxLjMzIDcuNTVMNS40NiA5LjQyQzYuMjIgNi42NCA4Ljg3IDQuNTcgMTIgNC41N1Y1LjA3WiIgZmlsbD0iI0VBNDMzQyIvPgo8L3N2Zz4K"
+              alt="Google"
+              class="provider-icon"
+            />
+            🔑 Sign in with Google
+          </button>
+
+          <button id="lineLoginBtn" class="button line">
+            <img
+              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo="
+              alt="LINE"
+              class="provider-icon"
+            />
+            🟩 Sign in with LINE
+          </button>
+
+          <button id="appleLoginBtn" class="button apple" style="background: linear-gradient(135deg, #000000 0%, #333333 100%); border: 2px solid #000000; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+            <img
+              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE4LjcxIDE5LjVjLS4xOSAwLS4zOC0uMDctLjUyLS4yMWwtNC4yNC00LjI0Yy0uMjgtLjI4LS4yOC0uNzMgMC0xLjAxbDQuMjQtNC4yNGMuMjgtLjI4LjczLS4yOCAxLjAxIDBsNC4yNCA0LjI0Yy4yOC4yOC4yOC43MyAwIDEuMDFsLTQuMjQgNC4yNGMtLjE0LjE0LS4zMy4yMS0uNTIuMjFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuNSAyMS41Yy0uMTkgMC0uMzgtLjA3LS41Mi0uMjFsLTQuMjQtNC4yNGMtLjI4LS4yOC0uMjgtLjczIDAtMS4wMWw0LjI0LTQuMjRjLjI4LS4yOC43My0uMjggMS4wMSAwbDQuMjQgNC4yNGMuMjguMjguMjguNzMgMCAxLjAxbC00LjI0IDQuMjRjLS4xNC4xNC0uMzMuMjEtLjUyLjIxWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=="
+              alt="Apple"
+              class="provider-icon"
+            />
+            🍎 Sign in with Apple
+          </button>
+
+          <button id="emailLoginBtn" class="button email">
+            <img
+              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgNGgxNnYxNkg0VjR6bTAgMlY2aDE2djEwSDZWMTBIMjBWNkg0eiIgZmlsbD0iIzI4YTc0NSIvPgo8cGF0aCBkPSJNMTIgMTJjLjU1IDAgMS0uNDUgMS0xcy0uNDUtMS0xLTFzLTEgLjQ1LTEgMSAuNDUgMSAxIDF6IiBmaWxsPSIjMjhhNzQ1Ii8+Cjwvc3ZnPgo="
+              alt="Email"
+              class="provider-icon"
+            />
+            📧 Sign in with Email
+          </button>
+        </div>
+
+        <!-- LINE Simple Login (No Firebase) -->
+        <div class="button-group" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef;">
+          <h4 style="color: #dc3545; margin-bottom: 15px; text-align: center; font-size: 16px;">⚠️ LINE Simple Login (No Firebase)</h4>
+          
+          <button id="lineLoginSimpleBtn" class="button line" style="background: linear-gradient(135deg, #00B900 0%, #00A000 100%); border: 2px solid #00B900; position: relative;">
+            <img
+              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo="
+              alt="LINE"
+              class="provider-icon"
+            />
+            🟩 LINE Login (Simple) - No Firebase Account
+            <span style="position: absolute; top: -8px; right: -8px; background: #ff6b6b; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;">!</span>
+          </button>
+          <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; font-size: 12px; color: #856404; text-align: center;">
+            <strong>📝 หมายเหตุ:</strong> การล็อกอินนี้จะไม่สร้างบัญชีใน Firebase
+          </div>
+        </div>
+
+        <!-- Email Authentication Form -->
+        <div id="emailAuthForm" class="email-auth-form">
+          <h3>📧 Email Authentication</h3>
+          
+          <!-- Error and Success Messages -->
+          <div id="errorMessage" class="error-message"></div>
+          <div id="successMessage" class="success-message"></div>
+
+          <!-- Login Form -->
+          <div id="loginForm" class="login-form">
+            <h4>เข้าสู่ระบบ</h4>
+            <div class="form-group">
+              <label for="loginEmail">Email:</label>
+              <input type="email" id="loginEmail" placeholder="กรุณาใส่ email" required>
+            </div>
+            <div class="form-group">
+              <label for="loginPassword">Password:</label>
+              <input type="password" id="loginPassword" placeholder="กรุณาใส่ password" required>
+            </div>
+            <div class="form-actions">
+              <button id="signInBtn" class="button email">เข้าสู่ระบบ</button>
+              <button id="forgotPasswordBtn" class="button secondary">ลืมรหัสผ่าน</button>
+            </div>
+            <div class="toggle-form">
+              <button id="showRegisterForm">ยังไม่มีบัญชี? สมัครสมาชิก</button>
+            </div>
+          </div>
+
+          <!-- Register Form -->
+          <div id="registerForm" class="login-form" style="display: none;">
+            <h4>สมัครสมาชิก</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="registerFirstName">ชื่อ:</label>
+                <input type="text" id="registerFirstName" placeholder="ชื่อ" required>
+              </div>
+              <div class="form-group">
+                <label for="registerLastName">นามสกุล:</label>
+                <input type="text" id="registerLastName" placeholder="นามสกุล" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="registerEmail">Email:</label>
+              <input type="email" id="registerEmail" placeholder="กรุณาใส่ email" required>
+            </div>
+            <div class="form-group">
+              <label for="registerPassword">Password:</label>
+              <input type="password" id="registerPassword" placeholder="กรุณาใส่ password (อย่างน้อย 6 ตัวอักษร)" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label for="confirmPassword">ยืนยัน Password:</label>
+              <input type="password" id="confirmPassword" placeholder="ยืนยัน password" required>
+            </div>
+            <div class="form-actions">
+              <button id="signUpBtn" class="button email">สมัครสมาชิก</button>
+            </div>
+            <div class="toggle-form">
+              <button id="showLoginForm">มีบัญชีแล้ว? เข้าสู่ระบบ</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- LINE Login Simple Result Section -->
+        <div id="lineSimpleResult" class="line-simple-result">
+          <h3>✅ ได้รับ ID Token สำเร็จ:</h3>
+          <pre id="lineSimpleIdToken"></pre>
+          <h3 style="margin-top: 1.5rem;">🔑 Access Token:</h3>
+          <pre id="lineSimpleAccessToken"></pre>
+        </div>
+        <div id="lineSimpleError" class="line-simple-error"></div>
+        <button id="lineSimpleResetBtn" class="button secondary" style="display: none; margin-top: 1.5rem;">กลับไปล็อกอินใหม่</button>
+
+      </div>
+    </div>
+
+    <!-- LINE Login JavaScript -->
+    <script type="module">
+      // Import Firebase modules
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+       import {
+         getAuth,
+         signInWithCustomToken,
+         connectAuthEmulator,
+         GoogleAuthProvider,
+         signInWithPopup,
+         signInWithRedirect,
+         getRedirectResult,
+         OAuthProvider,
+         signInWithEmailAndPassword,
+         createUserWithEmailAndPassword,
+         sendPasswordResetEmail,
+         updateProfile,
+         onAuthStateChanged,
+         signOut,
+         linkWithPopup,
+         unlink
+       } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+      // Firebase configuration for production
+      const firebaseConfig = {
+        apiKey: "AIzaSyDKpbS7WhKoTlBOMlGwjqVSs1ibhXJYPc8",
+        authDomain: "tsb-go-app-dev.firebaseapp.com",
+        projectId: "tsb-go-app-dev",
+        storageBucket: "tsb-go-app-dev.firebasestorage.app",
+        messagingSenderId: "266274251473",
+        appId: "1:266274251473:web:40c442f756ec2a11e0dbf0",
+        measurementId: "G-4HX4PD3PF9"
+      };
+
+      // TODO: Replace with your actual Firebase config
+      // You can get this from Firebase Console > Project Settings > General > Your apps
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+
+      // Use production Firebase (no emulator)
+      // connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+
+      // Initialize providers
+      const googleProvider = new GoogleAuthProvider();
+      const appleProvider = new OAuthProvider("apple.com");
+
+      // Email Authentication Functions
+      function showError(message) {
+        const errorDiv = document.getElementById('errorMessage');
+        const successDiv = document.getElementById('successMessage');
+        
+        if (errorDiv) {
+          errorDiv.textContent = message;
+          errorDiv.classList.add('show');
+        }
+        if (successDiv) {
+          successDiv.classList.remove('show');
+        }
+      }
+
+      function showSuccess(message) {
+        const errorDiv = document.getElementById('errorMessage');
+        const successDiv = document.getElementById('successMessage');
+        
+        if (successDiv) {
+          successDiv.textContent = message;
+          successDiv.classList.add('show');
+        }
+        if (errorDiv) {
+          errorDiv.classList.remove('show');
+        }
+      }
+
+      function clearMessages() {
+        const errorDiv = document.getElementById('errorMessage');
+        const successDiv = document.getElementById('successMessage');
+        
+        if (errorDiv) errorDiv.classList.remove('show');
+        if (successDiv) successDiv.classList.remove('show');
+      }
+
+      // Toggle between login and register forms
+      function toggleEmailForms() {
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        
+        if (loginForm && registerForm) {
+          if (loginForm.style.display === 'none') {
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
+          } else {
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'block';
+          }
+          clearMessages();
+        }
+      }
+
+      // Validate password confirmation
+      function validatePasswordConfirmation() {
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (password !== confirmPassword) {
+          showError('รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง');
+          return false;
+        }
+        
+        if (password.length < 6) {
+          showError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+          return false;
+        }
+        
+        return true;
+      }
+
+      // Email Sign In Function
+      async function signInWithEmail(email, password) {
+        try {
+          clearMessages();
+          console.log('📧 Starting email sign in...');
+          
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          console.log('✅ Email sign in successful:', userCredential.user);
+          
+          showSuccess('เข้าสู่ระบบสำเร็จ!');
+          
+          // Hide email form after successful login
+          const emailForm = document.getElementById('emailAuthForm');
+          if (emailForm) {
+            emailForm.classList.remove('show');
+          }
+          
+          return userCredential.user;
+        } catch (error) {
+          console.error('❌ Email sign in error:', error);
+          
+          // Handle specific error cases
+          let errorMessage = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
+          
+          switch (error.code) {
+            case 'auth/user-not-found':
+              errorMessage = 'ไม่พบผู้ใช้ที่ใช้อีเมลนี้';
+              break;
+            case 'auth/wrong-password':
+              errorMessage = 'รหัสผ่านไม่ถูกต้อง';
+              break;
+            case 'auth/invalid-email':
+              errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+              break;
+            case 'auth/user-disabled':
+              errorMessage = 'บัญชีนี้ถูกปิดใช้งาน';
+              break;
+            case 'auth/too-many-requests':
+              errorMessage = 'มีการพยายามเข้าสู่ระบบมากเกินไป กรุณารอสักครู่';
+              break;
+            case 'auth/network-request-failed':
+              errorMessage = 'เกิดข้อผิดพลาดเครือข่าย กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+              break;
+            default:
+              errorMessage = `เข้าสู่ระบบไม่สำเร็จ: ${error.message}`;
+          }
+          
+          showError(errorMessage);
+          throw error;
+        }
+      }
+
+      // Email Sign Up Function
+      async function signUpWithEmail(email, password, firstName, lastName) {
+        try {
+          clearMessages();
+          console.log('📧 Starting email sign up...');
+          
+          // Validate password confirmation
+          if (!validatePasswordConfirmation()) {
+            return;
+          }
+          
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          console.log('✅ Email sign up successful:', userCredential.user);
+          
+          // Update user profile with display name
+          const displayName = `${firstName} ${lastName}`.trim();
+          await updateProfile(userCredential.user, {
+            displayName: displayName
+          });
+          
+          console.log('✅ User profile updated with display name:', displayName);
+          
+          showSuccess('สมัครสมาชิกสำเร็จ! กำลังเข้าสู่ระบบ...');
+          
+          // Hide email form after successful registration
+          setTimeout(() => {
+            const emailForm = document.getElementById('emailAuthForm');
+            if (emailForm) {
+              emailForm.classList.remove('show');
+            }
+          }, 2000);
+          
+          return userCredential.user;
+        } catch (error) {
+          console.error('❌ Email sign up error:', error);
+          
+          // Handle specific error cases
+          let errorMessage = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
+          
+          switch (error.code) {
+            case 'auth/email-already-in-use':
+              errorMessage = 'อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น';
+              break;
+            case 'auth/invalid-email':
+              errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+              break;
+            case 'auth/weak-password':
+              errorMessage = 'รหัสผ่านอ่อนเกินไป ควรมีอย่างน้อย 6 ตัวอักษร';
+              break;
+            case 'auth/operation-not-allowed':
+              errorMessage = 'การสมัครสมาชิกด้วยอีเมลไม่ได้รับอนุญาต กรุณาติดต่อผู้ดูแลระบบ';
+              break;
+            case 'auth/network-request-failed':
+              errorMessage = 'เกิดข้อผิดพลาดเครือข่าย กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+              break;
+            default:
+              errorMessage = `สมัครสมาชิกไม่สำเร็จ: ${error.message}`;
+          }
+          
+          showError(errorMessage);
+          throw error;
+        }
+      }
+
+      // Password Reset Function
+      async function resetPassword(email) {
+        try {
+          clearMessages();
+          console.log('📧 Starting password reset...');
+          
+          await sendPasswordResetEmail(auth, email);
+          console.log('✅ Password reset email sent');
+          
+          showSuccess('ส่งอีเมลรีเซ็ตรหัสผ่านเรียบร้อยแล้ว กรุณาตรวจสอบอีเมลของคุณ');
+          
+        } catch (error) {
+          console.error('❌ Password reset error:', error);
+          
+          // Handle specific error cases
+          let errorMessage = 'เกิดข้อผิดพลาดในการส่งอีเมลรีเซ็ตรหัสผ่าน';
+          
+          switch (error.code) {
+            case 'auth/user-not-found':
+              errorMessage = 'ไม่พบผู้ใช้ที่ใช้อีเมลนี้';
+              break;
+            case 'auth/invalid-email':
+              errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+              break;
+            case 'auth/too-many-requests':
+              errorMessage = 'มีการขอรีเซ็ตรหัสผ่านมากเกินไป กรุณารอสักครู่';
+              break;
+            case 'auth/network-request-failed':
+              errorMessage = 'เกิดข้อผิดพลาดเครือข่าย กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+              break;
+            default:
+              errorMessage = `ส่งอีเมลรีเซ็ตรหัสผ่านไม่สำเร็จ: ${error.message}`;
+          }
+          
+          showError(errorMessage);
+          throw error;
+        }
+      }
+
+
+
+      // Provider status is now checked automatically on page load and auth state changes
+
+      // LINE Login Functions - Local Service
+      const LOCAL_SERVICE_URL = "http://localhost:3000";
+
+      // LINE Login Simple Functions
+      const lineLoginSimpleBtn = document.getElementById('lineLoginSimpleBtn');
+      const lineSimpleResult = document.getElementById('lineSimpleResult');
+      const lineSimpleIdToken = document.getElementById('lineSimpleIdToken');
+      const lineSimpleAccessToken = document.getElementById('lineSimpleAccessToken');
+      const lineSimpleError = document.getElementById('lineSimpleError');
+      const lineSimpleResetBtn = document.getElementById('lineSimpleResetBtn');
+
+      // Function to handle LINE Login Simple button click
+      if (lineLoginSimpleBtn) {
+        lineLoginSimpleBtn.addEventListener('click', async () => {
+          try {
+            console.log('🟩 Starting LINE Login Simple...');
+            const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/auth-url-simple`);
+            const data = await response.json();
+            if (data.success) {
+              console.log('✅ Got LINE Simple auth URL:', data.authUrl);
+              window.location.href = data.authUrl;
+            } else {
+              throw new Error(data.error || 'Failed to get auth URL');
+            }
+          } catch (err) {
+            console.error('❌ LINE Login Simple error:', err);
+            lineSimpleError.textContent = `Error: ${err.message}`;
+            lineSimpleError.style.display = 'block';
+          }
+        });
+      }
+
+      // Function to handle LINE Login Simple reset button click
+      if (lineSimpleResetBtn) {
+        lineSimpleResetBtn.addEventListener('click', () => {
+          // Clear any stored data
+          localStorage.removeItem('lineSimpleResult');
+          localStorage.removeItem('lineSimpleError');
+          
+          // Hide result and error sections
+          if (lineSimpleResult) lineSimpleResult.style.display = 'none';
+          if (lineSimpleError) lineSimpleError.style.display = 'none';
+          if (lineSimpleResetBtn) lineSimpleResetBtn.style.display = 'none';
+          if (lineLoginSimpleBtn) lineLoginSimpleBtn.style.display = 'inline-block';
+          
+          // Clear URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+      }
+
+
+      // Email Authentication Event Listeners
+      const emailLoginBtn = document.getElementById("emailLoginBtn");
+      const emailAuthForm = document.getElementById("emailAuthForm");
+      const signInBtn = document.getElementById("signInBtn");
+      const signUpBtn = document.getElementById("signUpBtn");
+      const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+      const showRegisterForm = document.getElementById("showRegisterForm");
+      const showLoginForm = document.getElementById("showLoginForm");
+
+      // Show email authentication form
+      if (emailLoginBtn) {
+        emailLoginBtn.addEventListener("click", () => {
+          if (emailAuthForm) {
+            emailAuthForm.classList.add("show");
+            clearMessages();
+          }
+        });
+      }
+
+      // Sign In button
+      if (signInBtn) {
+        signInBtn.addEventListener("click", async () => {
+          const email = document.getElementById("loginEmail").value;
+          const password = document.getElementById("loginPassword").value;
+          
+          if (!email || !password) {
+            showError("กรุณากรอกอีเมลและรหัสผ่าน");
+            return;
+          }
+          
+          try {
+            await signInWithEmail(email, password);
+          } catch (error) {
+            // Error is already handled in signInWithEmail function
+          }
+        });
+      }
+
+      // Sign Up button
+      if (signUpBtn) {
+        signUpBtn.addEventListener("click", async () => {
+          const email = document.getElementById("registerEmail").value;
+          const password = document.getElementById("registerPassword").value;
+          const firstName = document.getElementById("registerFirstName").value;
+          const lastName = document.getElementById("registerLastName").value;
+          
+          if (!email || !password || !firstName || !lastName) {
+            showError("กรุณากรอกข้อมูลให้ครบถ้วน");
+            return;
+          }
+          
+          try {
+            await signUpWithEmail(email, password, firstName, lastName);
+          } catch (error) {
+            // Error is already handled in signUpWithEmail function
+          }
+        });
+      }
+
+      // Forgot Password button
+      if (forgotPasswordBtn) {
+        forgotPasswordBtn.addEventListener("click", async () => {
+          const email = document.getElementById("loginEmail").value;
+          
+          if (!email) {
+            showError("กรุณากรอกอีเมลก่อน");
+            return;
+          }
+          
+          try {
+            await resetPassword(email);
+          } catch (error) {
+            // Error is already handled in resetPassword function
+          }
+        });
+      }
+
+      // Toggle to register form
+      if (showRegisterForm) {
+        showRegisterForm.addEventListener("click", () => {
+          toggleEmailForms();
+        });
+      }
+
+      // Toggle to login form
+      if (showLoginForm) {
+        showLoginForm.addEventListener("click", () => {
+          toggleEmailForms();
+        });
+      }
+
+      // Handle Google login button click
+      const googleLoginBtn = document.getElementById("googleLoginBtn");
+      if (googleLoginBtn) {
+        googleLoginBtn.addEventListener("click", async () => {
+          try {
+            console.log("🔑 Starting Google login process...");
+
+            // Add scopes if needed
+            googleProvider.addScope("email");
+            googleProvider.addScope("profile");
+            googleProvider.addScope("phone");
+
+            // Sign in with popup
+            const result = await signInWithPopup(auth, googleProvider);
+            console.log("✅ Google login successful:", result.user);
+
+            // The auth state listener will handle the UI update
+          } catch (error) {
+            console.error("❌ Google login error:", error);
+
+            // Handle specific error cases
+            if (error.code === "auth/popup-closed-by-user") {
+              alert("Google login was cancelled by user");
+            } else if (error.code === "auth/popup-blocked") {
+              alert(
+                "Google login popup was blocked. Please allow popups for this site."
+              );
+            } else {
+              alert(`Google login failed: ${error.message}`);
+            }
+          }
+        });
+      }
+
+      // Handle Apple login button click
+      const appleLoginBtn = document.getElementById("appleLoginBtn");
+      if (appleLoginBtn) {
+        appleLoginBtn.addEventListener("click", async () => {
+          try {
+            console.log("🍎 Starting Apple login process...");
+
+            // Configure Apple provider with proper settings
+            appleProvider.addScope("email");
+            appleProvider.addScope("name");
+            
+            // Set custom parameters for Apple Sign-In
+            appleProvider.setCustomParameters({
+              // Add any custom parameters if needed
+            });
+
+            console.log("Apple provider configured:", appleProvider);
+
+            // Sign in with popup
+            const result = await signInWithPopup(auth, appleProvider);
+            console.log("✅ Apple login successful:", result.user);
+            console.log("Apple user details:", {
+              email: result.user.email,
+              displayName: result.user.displayName,
+              uid: result.user.uid,
+              providerData: result.user.providerData
+            });
+
+            // The auth state listener will handle the UI update
+          } catch (error) {
+            console.error("❌ Apple login error:", error);
+            console.error("Error code:", error.code);
+            console.error("Error message:", error.message);
+
+            // Handle specific error cases with detailed messages
+            if (error.code === "auth/popup-closed-by-user") {
+              alert("Apple login was cancelled by user");
+            } else if (error.code === "auth/popup-blocked") {
+              alert(
+                "Apple login popup was blocked. Please allow popups for this site."
+              );
+            } else if (error.code === "auth/operation-not-allowed") {
+              alert(
+                "❌ Apple Sign-In is not enabled in Firebase Console.\n\n" +
+                "To fix this:\n" +
+                "1. Go to Firebase Console > Authentication > Sign-in method\n" +
+                "2. Enable 'Apple' provider\n" +
+                "3. Configure Apple Sign-In settings\n" +
+                "4. Add your domain to authorized domains"
+              );
+            } else if (error.code === "auth/unauthorized-domain") {
+              alert(
+                "❌ This domain is not authorized for Apple Sign-In.\n\n" +
+                "To fix this:\n" +
+                "1. Go to Firebase Console > Authentication > Settings > Authorized domains\n" +
+                "2. Add your current domain (localhost, 127.0.0.1, or your production domain)"
+              );
+            } else if (error.code === "auth/network-request-failed") {
+              alert(
+                "❌ Network error during Apple Sign-In.\n\n" +
+                "Please check your internet connection and try again."
+              );
+            } else {
+              alert(`❌ Apple login failed: ${error.message}\n\nError code: ${error.code}`);
+            }
+          }
+        });
+      }
+
+      // Handle LINE login button click
+      const lineLoginBtn = document.getElementById("lineLoginBtn");
+      if (lineLoginBtn) {
+        lineLoginBtn.addEventListener("click", async () => {
+          try {
+            console.log("🟩 Starting LINE login process...");
+
+            // Get authorization URL from local service
+            const response = await fetch(
+              `${LOCAL_SERVICE_URL}/api/auth/line/auth-url`
+            );
+            const authData = await response.json();
+
+            if (!authData.success) {
+              throw new Error(
+                authData.error || "Failed to get LINE authorization URL"
+              );
+            }
+
+            console.log("✅ Got LINE authorization URL:", authData.authUrl);
+
+            // Store state for verification
+            localStorage.setItem("lineAuthState", authData.state);
+            localStorage.setItem("lineAuthTimestamp", Date.now().toString());
+
+            // Redirect to LINE authorization page
+            window.location.href = authData.authUrl;
+          } catch (error) {
+            console.error("❌ LINE login error:", error);
+            alert(`LINE login failed: ${error.message}`);
+          }
+        });
+      }
+
+      // Check for LINE callback - Handle both regular and simple LINE login
+      const urlParams = new URLSearchParams(window.location.search);
+      const lineCode = urlParams.get("code");
+      const lineState = urlParams.get("state");
+      const lineError = urlParams.get("error");
+
+      if (lineCode && lineState) {
+        // Process LINE callback - Try both endpoints
+        console.log("LINE callback detected, processing...");
+
+        async function processLineCallback() {
+          try {
+            // First try the simple endpoint
+            let response = await fetch(
+              `${LOCAL_SERVICE_URL}/api/auth/line/token-simple`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  code: lineCode,
+                }),
+              }
+            );
+
+            let data = await response.json();
+
+            if (data.success) {
+              // Simple LINE login successful
+              console.log("✅ LINE Simple login successful!");
+              console.log("ID Token:", data.id_token);
+              console.log("Access Token:", data.access_token);
+
+              // Store data in localStorage
+              localStorage.setItem("lineSimpleSuccess", "true");
+              localStorage.setItem("lineSimpleIdToken", data.id_token);
+              localStorage.setItem("lineSimpleAccessToken", data.access_token);
+
+              // Clear URL parameters
+              window.history.replaceState(
+                {},
+                document.title,
+                window.location.pathname
+              );
+
+              // Refresh page to show user info
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            } else {
+              // Try the regular LINE login endpoint
+              console.log("Simple login failed, trying regular LINE login...");
+              
+              response = await fetch(
+                `${LOCAL_SERVICE_URL}/api/auth/line/login`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    code: lineCode,
+                    state: lineState,
+                  }),
+                }
+              );
+
+              data = await response.json();
+
+              if (data.success) {
+                // Regular LINE login successful
+                localStorage.setItem(
+                  "lineProfile",
+                  JSON.stringify(data.lineProfile)
+                );
+                localStorage.setItem(
+                  "lineIdTokenData",
+                  JSON.stringify(data.idTokenData)
+                );
+                localStorage.setItem("lineUser", JSON.stringify(data.user));
+                localStorage.setItem("lineIdToken", data.lineProfile.idToken);
+                localStorage.setItem("lineAccessToken", data.lineProfile.accessToken);
+
+                console.log("✅ LINE regular login successful!");
+                console.log("Access Token:", data.lineProfile.accessToken);
+                console.log("User Profile:", data.lineProfile);
+
+                // Clear URL parameters
+                window.history.replaceState(
+                  {},
+                  document.title,
+                  window.location.pathname
+                );
+
+                // Refresh page to show user info
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              } else {
+                throw new Error(data.error || "Both LINE login methods failed");
+              }
+            }
+          } catch (error) {
+            console.error("Error processing LINE callback:", error);
+            alert(`LINE login failed: ${error.message}`);
+          }
+        }
+
+        // Start processing
+        processLineCallback();
+      }
+
+      // Check for LINE errors
+      if (lineError) {
+        alert(`LINE login error: ${lineError}`);
+
+        // Clear URL parameters
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+      }
+
+
+
+      // Handle redirect results for Google and Apple login
+      getRedirectResult(auth)
+        .then((result) => {
+          if (result) {
+            console.log("✅ Redirect login successful:", result.user);
+            // The auth state listener will handle the UI update
+          }
+        })
+        .catch((error) => {
+          console.error("❌ Redirect login error:", error);
+          if (error.code === "auth/operation-not-allowed") {
+            alert("This sign-in method is not enabled in Firebase Console.");
+          }
+        });
+
+      // Check for logged in user (Firebase Auth or LINE)
+      function checkUserStatus() {
+        const userInfo = document.getElementById("userInfo");
+        const userDetails = document.getElementById("userDetails");
+        const logoutBtn = document.getElementById("logoutBtn");
+        const authSection = document.getElementById("authSection");
+
+        // Check LINE Simple Login first
+        const lineSimpleSuccess = localStorage.getItem('lineSimpleSuccess');
+        const lineSimpleIdToken = localStorage.getItem('lineSimpleIdToken');
+        const lineSimpleAccessToken = localStorage.getItem('lineSimpleAccessToken');
+
+        if (lineSimpleSuccess && lineSimpleIdToken) {
+          // LINE Simple user is logged in
+          if (userInfo) userInfo.style.display = "block";
+          if (authSection) authSection.style.display = "none";
+          
+          if (userDetails) {
+            userDetails.innerHTML = `
+              <h3>👤 User Information (LINE Simple Login)</h3>
+              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 10px; margin-bottom: 15px;">
+                <p style="margin: 0; color: #856404;"><strong>📝 หมายเหตุ:</strong> การล็อกอินนี้เป็นการล็อกอิน LINE แบบ Simple ที่ไม่สร้างบัญชีใน Firebase Authentication</p>
+                <p style="margin: 5px 0 0 0; color: #856404; font-size: 12px;">• ข้อมูลจะถูกเก็บไว้ใน localStorage เท่านั้น</p>
+                <p style="margin: 0; color: #856404; font-size: 12px;">• ไม่สามารถใช้ Firebase Auth features อื่นๆ ได้</p>
+              </div>
+              <p><strong>Status:</strong> ✅ Logged in via LINE Simple</p>
+              <p><strong>ID Token:</strong></p>
+              <textarea readonly style="width: 100%; height: 120px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-top: 5px; resize: vertical;">${lineSimpleIdToken}</textarea>
+              <p style="margin-top: 15px;"><strong>Access Token:</strong></p>
+              <textarea readonly style="width: 100%; height: 120px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-top: 5px; resize: vertical;">${lineSimpleAccessToken}</textarea>
+            `;
+          }
+          if (logoutBtn) logoutBtn.style.display = "block";
+          
+          // แสดง real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.style.display = "block";
+            
+            // ซ่อนปุ่ม provider ที่เชื่อมต่อแล้ว (LINE user ไม่มี providerData)
+            updateProviderButtons([]);
+          }
+          
+          
+          return;
+        }
+
+        // Check Firebase Auth
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          // ตรวจสอบว่ามี providers หรือไม่
+          if (currentUser.providerData && currentUser.providerData.length === 0) {
+            console.log('⚠️ Firebase user has no providers - signing out');
+            // ถ้าไม่มี providers ให้ออกจากระบบ
+            signOut(auth).then(() => {
+              console.log('✅ User signed out due to no providers');
+              checkUserStatus(); // เรียกใช้ใหม่เพื่อแสดงหน้า login
+            }).catch(error => {
+              console.error('❌ Error signing out user:', error);
+            });
+            return;
+          }
+          
+          // Firebase user is signed in
+          if (userInfo) userInfo.style.display = "block";
+          if (authSection) authSection.style.display = "none";
+          
+          if (userDetails) {
+            // Get Firebase ID Token and then update UI
+            currentUser.getIdToken().then(idToken => {
+              console.log("Firebase ID Token:", idToken);
+
+              // Debug: Log provider data
+              console.log("Current user provider data:", currentUser.providerData);
+              console.log("User email:", currentUser.email);
+              console.log("User display name:", currentUser.displayName);
+              
+              // Get provider information
+              let providerId = "password"; // Default for email/password
+              let providerName = "Email/Password";
+              let providerIcon = "📧";
+              
+              if (currentUser.providerData && currentUser.providerData.length > 0) {
+                // Get the first provider (most recent login method)
+                const primaryProvider = currentUser.providerData[0];
+                providerId = primaryProvider.providerId;
+                providerName = getProviderDisplayName(providerId);
+                providerIcon = getProviderIcon(providerId);
+                
+                console.log("Primary provider:", primaryProvider);
+                console.log("Detected provider:", providerId, "->", providerName);
+              } else {
+                // Check if it's an email/password login by checking if no provider data
+                // and user has email but no special domain indicators
+                if (currentUser.email && !currentUser.email.includes('@gmail.com') && 
+                    !currentUser.email.includes('@icloud.com') && 
+                    !currentUser.email.includes('@me.com')) {
+                  providerId = 'password';
+                  providerName = 'Email/Password';
+                  providerIcon = '📧';
+                  console.log("Detected Email/Password login");
+                } else if (currentUser.email) {
+                  if (currentUser.email.includes('@gmail.com')) {
+                    providerId = 'google.com';
+                    providerName = 'Google';
+                    providerIcon = '🔑';
+                    console.log("Fallback: Detected Google from Gmail domain");
+                  } else if (currentUser.email.includes('@icloud.com') || currentUser.email.includes('@me.com')) {
+                    providerId = 'apple.com';
+                    providerName = 'Apple';
+                    providerIcon = '🍎';
+                    console.log("Fallback: Detected Apple from iCloud domain");
+                  } else {
+                    // Check if it's a Google account by other indicators
+                    const isGoogleAccount = currentUser.emailVerified && 
+                      (currentUser.displayName || currentUser.photoURL);
+                    if (isGoogleAccount) {
+                      providerId = 'google.com';
+                      providerName = 'Google';
+                      providerIcon = '🔑';
+                      console.log("Fallback: Detected Google from account indicators");
+                    }
+                  }
+                }
+              }
+              
+              userDetails.innerHTML = `
+                          <h3>👤 User Information (Firebase)</h3>
+                          <p><strong>Email:</strong> ${
+                            currentUser.email || "N/A"
+                          }</p>
+                          <p><strong>Display Name:</strong> ${
+                            currentUser.displayName || "N/A"
+                          }</p>
+                          <p><strong>UID:</strong> ${currentUser.uid}</p>
+                          <p><strong>Email Verified:</strong> ${currentUser.emailVerified ? '✅ ใช่' : '❌ ไม่'}</p>
+                          <p><strong>Current Login:</strong> ${providerIcon} ${providerName}</p>
+                          <p><strong>Linked Providers:</strong></p>
+                          <div style="margin-left: 20px; margin-top: 5px;">
+                              ${currentUser.providerData?.map(provider => {
+                                  const icon = getProviderIcon(provider.providerId);
+                                  const name = getProviderDisplayName(provider.providerId);
+                                  return `<p style="margin: 5px 0;">${icon} ${name} (${provider.providerId})</p>`;
+                              }).join('') || '<p style="margin: 5px 0; color: #999;">No linked providers</p>'}
+                          </div>
+                          <p style="margin-top: 15px;"><strong>Firebase ID Token:</strong></p>
+                          <textarea readonly style="width: 100%; height: 120px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-top: 5px; resize: vertical;">${idToken}</textarea>
+                      `;
+              
+              // Load linked providers for management
+              loadLinkedProviders(currentUser.uid);
+            });
+          }
+          if (logoutBtn) logoutBtn.style.display = "block";
+          
+          // แสดง real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.style.display = "block";
+            
+            // ตรวจสอบและแสดงข้อมูล providers
+            checkFirebaseProviders(currentUser);
+            
+            // ซ่อนปุ่ม provider ที่เชื่อมต่อแล้ว
+            updateProviderButtons(currentUser.providerData);
+          }
+          
+          
+          return;
+        }
+
+        // Check LINE login
+        const lineUser = localStorage.getItem("lineUser");
+        const lineProfile = localStorage.getItem("lineProfile");
+        const lineAccessToken = localStorage.getItem("lineAccessToken");
+
+        if (lineUser && lineProfile) {
+          const user = JSON.parse(lineUser);
+          const profile = JSON.parse(lineProfile);
+          const lineIdToken = localStorage.getItem("lineIdToken");
+
+          if (userInfo) userInfo.style.display = "block";
+          if (userDetails) {
+            userDetails.innerHTML = `
+                        <h3>👤 User Information (LINE)</h3>
+                        <p><strong>Email:</strong> ${user.email || "N/A"}</p>
+                        <p><strong>Display Name:</strong> ${
+                          user.displayName || profile.displayName || "N/A"
+                        }</p>
+                        <p><strong>UID:</strong> ${user.uid}</p>
+                        <p><strong>Provider:</strong> LINE</p>
+                        <p><strong>LINE User ID:</strong> ${profile.userId}</p>
+                        <p><strong>Access Token:</strong> <code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px; font-size: 12px;">${lineAccessToken ? lineAccessToken.substring(0, 20) + '...' : 'N/A'}</code></p>
+                        <p><strong>Full Access Token:</strong> <textarea readonly style="width: 100%; height: 60px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px;">${lineAccessToken || 'N/A'}</textarea></p>
+                        <p style="margin-top: 15px;"><strong>LINE ID Token:</strong></p>
+                        <textarea readonly style="width: 100%; height: 120px; font-size: 10px; font-family: monospace; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-top: 5px; resize: vertical;">${lineIdToken || 'N/A'}</textarea>
+                        ${
+                          profile.pictureUrl
+                            ? `<img src="${profile.pictureUrl}" alt="Profile" class="profile-pic">`
+                            : ""
+                        }
+                    `;
+          }
+          if (logoutBtn) logoutBtn.style.display = "block";
+          
+          
+          return;
+        }
+
+        // No user logged in
+        if (userInfo) userInfo.style.display = "none";
+        if (authSection) authSection.style.display = "block";
+        if (logoutBtn) logoutBtn.style.display = "none";
+        
+        // แสดง real provider section แม้จะไม่มี user ล็อกอิน
+        const realProviderSection = document.getElementById('realProviderSection');
+        if (realProviderSection) {
+          realProviderSection.style.display = "block";
+          
+          // แสดงปุ่มทั้งหมดเมื่อไม่มี user ล็อกอิน
+          updateProviderButtons([]);
+        }
+
+      }
+
+
+
+      // Helper function to get provider display names
+      function getProviderDisplayName(providerId) {
+        const providerNames = {
+          'google.com': 'Google',
+          'apple.com': 'Apple',
+          'oidc.line': 'LINE',
+          'facebook.com': 'Facebook',
+          'twitter.com': 'Twitter',
+          'github.com': 'GitHub',
+          'microsoft.com': 'Microsoft',
+          'yahoo.com': 'Yahoo',
+          'password': 'Email/Password'
+        };
+        return providerNames[providerId] || providerId;
+      }
+      
+      // Make functions available globally for HTML onclick
+      window.getProviderDisplayName = getProviderDisplayName;
+      window.getProviderIcon = getProviderIcon;
+      window.getProviderColor = getProviderColor;
+
+      // Helper function to get provider icons
+      function getProviderIcon(providerId) {
+        const providerIcons = {
+          'google.com': '🔑',
+          'apple.com': '🍎',
+          'line.com': '🟩',
+          'facebook.com': '📘',
+          'twitter.com': '🐦',
+          'github.com': '🐙',
+          'microsoft.com': '🪟',
+          'yahoo.com': '📧',
+          'password': '📧'
+        };
+        return providerIcons[providerId] || '🔐';
+      }
+
+
+
+      // Auth state listener for Firebase
+      auth.onAuthStateChanged((user) => {
+        console.log(
+          "Firebase Auth State Changed:",
+          user ? "User logged in" : "No user"
+        );
+        checkUserStatus();
+      });
+
+      // Check user status on page load
+      checkUserStatus();
+      
+
+      // Real Provider Functions
+      // ฟังก์ชันสำหรับการเชื่อมต่อ Provider จริง
+      
+      /**
+       * ตรวจสอบและแสดงข้อมูล providers ที่เชื่อมต่อกับ Firebase user
+       * @param {Object} currentUser - Firebase user object
+       */
+      function checkFirebaseProviders(currentUser) {
+        if (!currentUser) {
+          console.log('❌ No Firebase user found');
+          return;
+        }
+        
+        console.log('🔍 Checking Firebase providers for user:', currentUser.uid);
+        console.log('📧 User email:', currentUser.email);
+        console.log('👤 Display name:', currentUser.displayName);
+        console.log('🖼️ Photo URL:', currentUser.photoURL);
+        console.log('📱 Phone number:', currentUser.phoneNumber);
+        console.log('✅ Email verified:', currentUser.emailVerified);
+        
+        // ตรวจสอบ providerData
+        if (currentUser.providerData && currentUser.providerData.length > 0) {
+          console.log('🔗 Connected providers:', currentUser.providerData.length);
+          
+          currentUser.providerData.forEach((provider, index) => {
+            console.log(`  ${index + 1}. Provider ID: ${provider.providerId}`);
+            console.log(`     - UID: ${provider.uid}`);
+            console.log(`     - Email: ${provider.email || 'N/A'}`);
+            console.log(`     - Display Name: ${provider.displayName || 'N/A'}`);
+            console.log(`     - Photo URL: ${provider.photoURL || 'N/A'}`);
+            console.log(`     - Phone: ${provider.phoneNumber || 'N/A'}`);
+          });
+          
+          // แสดงข้อมูลใน UI
+          displayProviderInfo(currentUser.providerData);
+          
+        } else {
+          console.log('❌ No providers connected to this user');
+          console.log('ℹ️ This might be an email/password account or a new account');
+          
+          // แสดงข้อความว่าไม่มี provider
+          displayProviderInfo([]);
+        }
+      }
+      
+      /**
+       * แสดงข้อมูล providers ใน UI
+       * @param {Array} providerData - ข้อมูล providers
+       */
+      function displayProviderInfo(providerData) {
+        // สร้างหรืออัปเดต provider info section
+        let providerInfoSection = document.getElementById('providerInfoSection');
+        if (!providerInfoSection) {
+          providerInfoSection = document.createElement('div');
+          providerInfoSection.id = 'providerInfoSection';
+          providerInfoSection.style.cssText = `
+            margin-top: 20px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+          `;
+          
+          // แทรกก่อน real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.parentNode.insertBefore(providerInfoSection, realProviderSection);
+          }
+        }
+        
+        if (providerData && providerData.length > 0) {
+          // ตรวจสอบ email ที่แตกต่างกัน
+          const emails = providerData.map(p => p.email).filter(email => email);
+          const uniqueEmails = [...new Set(emails)];
+          const hasDifferentEmails = uniqueEmails.length > 1;
+          
+          // แสดงข้อมูล providers ที่เชื่อมต่อแล้ว
+          providerInfoSection.innerHTML = `
+            <h4 style="margin: 0 0 15px 0; color: #333;">🔗 Providers ที่เชื่อมต่อแล้ว (${providerData.length})</h4>
+            ${hasDifferentEmails ? `
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 10px; margin-bottom: 15px;">
+              <div style="color: #856404; font-size: 12px; font-weight: bold; margin-bottom: 5px;">ℹ️ ข้อมูล Email</div>
+              <div style="color: #856404; font-size: 11px;">
+                ระบบรองรับการเชื่อมต่อ providers ที่มี email ต่างกัน<br>
+                📧 Emails: ${uniqueEmails.join(', ')}
+              </div>
+            </div>
+            ` : ''}
+            <div style="display: grid; gap: 10px;">
+              ${providerData.map((provider, index) => `
+                <div style="display: flex; align-items: center; padding: 10px; background: white; border-radius: 6px; border: 1px solid #e9ecef;">
+                  <div style="width: 40px; height: 40px; border-radius: 50%; background-color: ${getProviderColor(provider.providerId)}; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 18px;">
+                    ${getProviderIcon(provider.providerId)}
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-weight: bold; color: #333;">${getProviderDisplayName(provider.providerId)}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 2px;">
+                      📧 ${provider.email || 'N/A'} | 👤 ${provider.displayName || 'N/A'}
+                    </div>
+                    <div style="font-size: 10px; color: #999; margin-top: 2px; font-family: monospace;">
+                      🔗 ${provider.providerId}
+                    </div>
+                  </div>
+                   <div style="display: flex; align-items: center; gap: 10px;">
+                     <div style="color: #28a745; font-size: 12px; font-weight: bold;">
+                       ✅ เชื่อมต่อแล้ว
+                     </div>
+                     <button 
+                       onclick="unlinkProviderFromUI('${provider.providerId}', '${getProviderDisplayName(provider.providerId)}')"
+                       style="
+                         background: #dc3545; 
+                         color: white; 
+                         border: none; 
+                         border-radius: 4px; 
+                         padding: 4px 8px; 
+                         font-size: 10px; 
+                         cursor: pointer;
+                         transition: background-color 0.2s;
+                       "
+                       onmouseover="this.style.backgroundColor='#c82333'"
+                       onmouseout="this.style.backgroundColor='#dc3545'"
+                     >
+                       🗑️ ยกเลิก
+                     </button>
+                   </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        } else {
+          // แสดงข้อความว่าไม่มี provider
+          providerInfoSection.innerHTML = `
+            <h4 style="margin: 0 0 15px 0; color: #333;">🔗 Providers ที่เชื่อมต่อแล้ว</h4>
+            <div style="text-align: center; padding: 20px; color: #666;">
+              <div style="font-size: 24px; margin-bottom: 10px;">📭</div>
+              <div>ยังไม่มี provider เชื่อมต่อ</div>
+              <div style="font-size: 12px; margin-top: 5px; color: #999;">
+                ใช้ปุ่มด้านล่างเพื่อเชื่อมต่อ provider ต่างๆ
+              </div>
+            </div>
+          `;
+        }
+      }
+      
+      /**
+       * อัปเดตปุ่ม provider ตาม providers ที่เชื่อมต่อแล้ว
+       * @param {Array} providerData - ข้อมูล providers ที่เชื่อมต่อ
+       */
+      function updateProviderButtons(providerData) {
+        if (!providerData || !Array.isArray(providerData)) {
+          return;
+        }
+        
+        // เก็บ provider IDs ที่เชื่อมต่อแล้ว
+        const connectedProviders = providerData.map(provider => provider.providerId);
+        
+        // ซ่อนปุ่ม Google ถ้าเชื่อมต่อแล้ว
+        const googleBtn = document.getElementById('realGoogleLinkBtn');
+        if (googleBtn) {
+          if (connectedProviders.includes('google.com')) {
+            googleBtn.style.display = 'none';
+            console.log('✅ Google provider already connected - hiding button');
+          } else {
+            googleBtn.style.display = 'block';
+          }
+        }
+        
+        // ซ่อนปุ่ม Apple ถ้าเชื่อมต่อแล้ว
+        const appleBtn = document.getElementById('realAppleLinkBtn');
+        if (appleBtn) {
+          if (connectedProviders.includes('apple.com')) {
+            appleBtn.style.display = 'none';
+            console.log('✅ Apple provider already connected - hiding button');
+          } else {
+            appleBtn.style.display = 'block';
+          }
+        }
+        
+        // ซ่อนปุ่ม LINE ถ้าเชื่อมต่อแล้ว
+        const lineBtn = document.getElementById('realLineLinkBtn');
+        if (lineBtn) {
+          if (connectedProviders.includes('oidc.line')) {
+            lineBtn.style.display = 'none';
+            console.log('✅ LINE provider already connected - hiding button');
+          } else {
+            lineBtn.style.display = 'block';
+          }
+        }
+        
+        // ตรวจสอบว่ามี provider ที่ยังไม่ได้เชื่อมต่อหรือไม่
+        const allProviders = ['google.com', 'apple.com', 'oidc.line'];
+        const remainingProviders = allProviders.filter(provider => !connectedProviders.includes(provider));
+        
+        if (remainingProviders.length === 0) {
+          // ถ้าเชื่อมต่อครบทุก provider แล้ว ให้ซ่อนส่วน real provider section
+          const realProviderSection = document.getElementById('realProviderSection');
+          if (realProviderSection) {
+            realProviderSection.style.display = 'none';
+            console.log('✅ All providers connected - hiding real provider section');
+          }
+        }
+      }
+      
+      
+      /**
+       * Wrapper function for unlinkProvider to match UI usage
+       * @param {string} providerId - ID ของ provider ที่ต้องการยกเลิก
+       * @param {string} providerName - ชื่อของ provider
+       */
+      window.unlinkProviderFromUI = async function(providerId, providerName) {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะยกเลิกการเชื่อมต่อ provider');
+            return;
+          }
+          
+          // ยืนยันการยกเลิก
+          const confirmMessage = `คุณแน่ใจหรือไม่ที่จะยกเลิกการเชื่อมต่อ ${providerName}?\n\n⚠️ หมายเหตุ: คุณสามารถยกเลิกได้แม้จะเหลือ provider เดียว`;
+          if (!confirm(confirmMessage)) {
+            return;
+          }
+          
+          console.log(`🗑️ Unlinking provider: ${providerId} (${providerName})`);
+          
+          // หา provider ที่ต้องการยกเลิก
+          const providerToUnlink = currentUser.providerData.find(provider => provider.providerId === providerId);
+          if (!providerToUnlink) {
+            alert(`ไม่พบ ${providerName} provider ที่เชื่อมต่ออยู่`);
+            return;
+          }
+          
+          // ยกเลิกการเชื่อมต่อ provider
+          await unlink(currentUser, providerId);
+          
+          console.log(`✅ Successfully unlinked ${providerName} provider`);
+          
+          // แสดงข้อความสำเร็จ
+          alert(`✅ ยกเลิกการเชื่อมต่อ ${providerName} สำเร็จ!`);
+          
+          // อัปเดต UI โดยไม่ต้อง reload
+          checkFirebaseProviders(currentUser);
+          updateProviderButtons(currentUser.providerData);
+          
+          // ตรวจสอบว่ายังมี provider เหลืออยู่หรือไม่
+          // ใช้ currentUser.providerData หลังจาก unlink แล้ว
+          const updatedUser = auth.currentUser;
+          const remainingProviders = updatedUser ? updatedUser.providerData : [];
+          
+          console.log('Remaining providers after unlink:', remainingProviders.length);
+          
+          if (remainingProviders.length === 0) {
+            console.log('⚠️ No providers remaining - signing out user');
+            alert('⚠️ คุณได้ยกเลิกการเชื่อมต่อ provider สุดท้ายแล้ว\n\nระบบจะออกจากระบบอัตโนมัติ');
+            
+            // เตะผู้ใช้ออกจากระบบ
+            try {
+              await signOut(auth);
+              console.log('✅ User signed out successfully');
+              
+              // อัปเดต UI
+              checkUserStatus();
+              
+              // แสดงข้อความแจ้งเตือน
+              setTimeout(() => {
+                alert('🔓 คุณได้ออกจากระบบแล้ว\n\nกรุณาล็อกอินใหม่เพื่อเข้าถึงบัญชี');
+              }, 1000);
+              
+            } catch (signOutError) {
+              console.error('❌ Error signing out user:', signOutError);
+              alert('เกิดข้อผิดพลาดในการออกจากระบบ กรุณา refresh หน้าเว็บ');
+            }
+          }
+          
+        } catch (error) {
+          console.error('❌ Error unlinking provider:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/no-such-provider') {
+            alert(`${providerName} provider ไม่ได้เชื่อมต่อกับบัญชีนี้`);
+          } else if (error.code === 'auth/requires-recent-login') {
+            alert('กรุณาล็อกอินใหม่ก่อนที่จะยกเลิกการเชื่อมต่อ provider');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการยกเลิก ${providerName}: ${error.message}`);
+          }
+        }
+      };
+      
+      /**
+       * ตรวจสอบ email ซ้ำกันใน providers
+       * @param {string} newEmail - email ใหม่ที่จะ link
+       * @param {Array} existingProviders - providers ที่มีอยู่
+       * @returns {boolean} true ถ้า email ซ้ำกัน
+       */
+      function checkDuplicateEmail(newEmail, existingProviders) {
+        if (!newEmail || !existingProviders) return false;
+        
+        return existingProviders.some(provider => 
+          provider.email && provider.email.toLowerCase() === newEmail.toLowerCase()
+        );
+      }
+      
+      /**
+       * Real Google Provider Link
+       * เชื่อมต่อ Google Provider จริงผ่าน Firebase Authentication
+       */
+      async function realGoogleProviderLink() {
+        try {
+          console.log('🔗 Real Google Provider Link started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ตรวจสอบ email ซ้ำกัน
+          const existingProviders = currentUser.providerData || [];
+          console.log('Existing providers:', existingProviders.map(p => ({ id: p.providerId, email: p.email })));
+          
+          // ใช้ Firebase Auth เพื่อเชื่อมต่อ Google
+          const googleProvider = new GoogleAuthProvider();
+          googleProvider.addScope('email');
+          googleProvider.addScope('profile');
+          
+          // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
+          const result = await linkWithPopup(currentUser, googleProvider);
+          console.log('✅ Google provider linked successfully:', result);
+          
+          // ตรวจสอบ email ซ้ำกันหลัง link
+          const newEmail = result.user.email;
+          if (checkDuplicateEmail(newEmail, existingProviders)) {
+            console.log('⚠️ Duplicate email detected, but link was successful');
+            alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+          } else {
+            console.log('✅ New email linked successfully:', newEmail);
+          }
+          
+               // แสดงผลลัพธ์
+               showRealProviderResult({
+                 providerId: 'google.com',
+                 providerName: 'Google',
+                 providerIcon: '🔑',
+                 email: result.user.email,
+                 displayName: result.user.displayName,
+                 photoURL: result.user.photoURL,
+                 uid: result.user.uid,
+                 linkedAt: new Date().toISOString(),
+                 isReal: true
+               });
+               
+               // แสดงข้อความสำเร็จ
+               alert('✅ เชื่อมต่อ Google สำเร็จ!');
+          
+               // อัปเดตปุ่ม provider
+               updateProviderButtons(result.user.providerData);
+               
+               // อัปเดต UI
+               window.location.reload();
+          
+        } catch (error) {
+          console.error('❌ Real Google Provider link error:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('Google account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('Google account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/popup-closed-by-user') {
+            alert('การเชื่อมต่อ Google ถูกยกเลิกโดยผู้ใช้');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ Google: ${error.message}`);
+          }
+        }
+      }
+      
+      /**
+       * Real Apple Provider Link
+       * เชื่อมต่อ Apple Provider จริงผ่าน Firebase Authentication
+       */
+      async function realAppleProviderLink() {
+        try {
+          console.log('🍎 Real Apple Provider Link started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ใช้ Firebase Auth เพื่อเชื่อมต่อ Apple
+          const appleProvider = new OAuthProvider('apple.com');
+          appleProvider.addScope('email');
+          appleProvider.addScope('name');
+          
+          // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
+          const result = await linkWithPopup(currentUser, appleProvider);
+          console.log('✅ Apple provider linked successfully:', result);
+          
+          // ตรวจสอบ email ซ้ำกันหลัง link
+          const newEmail = result.user.email;
+          const existingProviders = currentUser.providerData || [];
+          if (checkDuplicateEmail(newEmail, existingProviders)) {
+            console.log('⚠️ Duplicate email detected, but link was successful');
+            alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+          } else {
+            console.log('✅ New email linked successfully:', newEmail);
+          }
+          
+               // แสดงผลลัพธ์
+               showRealProviderResult({
+                 providerId: 'apple.com',
+                 providerName: 'Apple',
+                 providerIcon: '🍎',
+                 email: result.user.email,
+                 displayName: result.user.displayName,
+                 photoURL: result.user.photoURL,
+                 uid: result.user.uid,
+                 linkedAt: new Date().toISOString(),
+                 isReal: true
+               });
+               
+               // แสดงข้อความสำเร็จ
+               alert('✅ เชื่อมต่อ Apple สำเร็จ!');
+          
+               // อัปเดตปุ่ม provider
+               updateProviderButtons(result.user.providerData);
+               
+               // อัปเดต UI
+               window.location.reload();
+          
+        } catch (error) {
+          console.error('❌ Real Apple Provider link error:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('Apple account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('Apple account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/popup-closed-by-user') {
+            alert('การเชื่อมต่อ Apple ถูกยกเลิกโดยผู้ใช้');
+          } else if (error.code === 'auth/operation-not-allowed') {
+            alert('Apple Sign-In ไม่ได้เปิดใช้งานใน Firebase Console');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ Apple: ${error.message}`);
+          }
+        }
+      }
+      
+      /**
+       * Real LINE Provider Link
+       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication
+       */
+      async function realLineProviderLink() {
+        try {
+          console.log('🟩 Real LINE Provider Link started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ใช้ Firebase Auth เพื่อเชื่อมต่อ LINE
+          const lineProvider = new OAuthProvider('oidc.line');
+          lineProvider.addScope('profile');
+          lineProvider.addScope('openid');
+          lineProvider.addScope('email');
+          
+          // ใช้ linkWithPopup เพื่อเชื่อมต่อ provider กับบัญชีปัจจุบัน
+          const result = await linkWithPopup(currentUser, lineProvider);
+          console.log('✅ LINE provider linked successfully:', result);
+          
+          // ตรวจสอบ email ซ้ำกันหลัง link
+          const newEmail = result.user.email;
+          const existingProviders = currentUser.providerData || [];
+          if (checkDuplicateEmail(newEmail, existingProviders)) {
+            console.log('⚠️ Duplicate email detected, but link was successful');
+            alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+          } else {
+            console.log('✅ New email linked successfully:', newEmail);
+          }
+          
+               // แสดงผลลัพธ์
+               showRealProviderResult({
+                 providerId: 'oidc.line',
+                 providerName: 'LINE',
+                 providerIcon: '🟩',
+                 email: result.user.email,
+                 displayName: result.user.displayName,
+                 photoURL: result.user.photoURL,
+                 uid: result.user.uid,
+                 linkedAt: new Date().toISOString(),
+                 isReal: true
+               });
+               
+               // แสดงข้อความสำเร็จ
+               alert('✅ เชื่อมต่อ LINE สำเร็จ!');
+          
+               // อัปเดตปุ่ม provider
+               updateProviderButtons(result.user.providerData);
+               
+               // อัปเดต UI
+               window.location.reload();
+          
+        } catch (error) {
+          console.error('❌ Real LINE Provider link error:', error);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('LINE account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('LINE account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/popup-closed-by-user') {
+            alert('การเชื่อมต่อ LINE ถูกยกเลิกโดยผู้ใช้');
+          } else if (error.code === 'auth/operation-not-allowed') {
+            alert('LINE Login ไม่ได้เปิดใช้งานใน Firebase Console');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ LINE: ${error.message}`);
+          }
+        }
+      }
+      
+      /**
+       * แสดงผลลัพธ์การเชื่อมต่อ Provider จริง
+       * @param {Object} providerData - ข้อมูล provider ที่เชื่อมต่อ
+       */
+      function showRealProviderResult(providerData) {
+        const realProviderResults = document.getElementById('realProviderResults');
+        const realProviderDetails = document.getElementById('realProviderDetails');
+        
+        if (!realProviderResults || !realProviderDetails) {
+          console.error('❌ Real provider results elements not found');
+          return;
+        }
+        
+        // แสดงผลลัพธ์
+        realProviderResults.style.display = 'block';
+        
+        // สร้าง HTML สำหรับแสดงข้อมูล
+        realProviderDetails.innerHTML = `
+          <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background-color: ${getProviderColor(providerData.providerId)}; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 24px;">
+              ${providerData.providerIcon}
+            </div>
+            <div>
+              <h5 style="margin: 0; color: #333;">${providerData.providerName} Provider</h5>
+              <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">เชื่อมต่อแล้วเมื่อ: ${new Date(providerData.linkedAt).toLocaleString('th-TH')}</p>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div>
+              <strong>Email:</strong><br>
+              <span style="color: #666;">${providerData.email || 'N/A'}</span>
+            </div>
+            <div>
+              <strong>Display Name:</strong><br>
+              <span style="color: #666;">${providerData.displayName || 'N/A'}</span>
+            </div>
+            <div>
+              <strong>Provider ID:</strong><br>
+              <span style="color: #666; font-family: monospace; font-size: 12px;">${providerData.providerId}</span>
+            </div>
+            <div>
+              <strong>UID:</strong><br>
+              <span style="color: #666; font-family: monospace; font-size: 12px;">${providerData.uid}</span>
+            </div>
+          </div>
+          
+          ${providerData.photoURL ? `
+          <div style="margin-bottom: 15px;">
+            <strong>Profile Picture:</strong><br>
+            <img src="${providerData.photoURL}" alt="Profile" style="width: 60px; height: 60px; border-radius: 50%; margin-top: 5px;">
+          </div>
+          ` : ''}
+          
+          <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 10px; margin-top: 15px;">
+            <p style="margin: 0; color: #155724; font-size: 14px;">
+              <strong>✅ Provider จริงเชื่อมต่อสำเร็จ!</strong><br>
+              ข้อมูลนี้ถูกเก็บใน Firebase Authentication และสามารถใช้ได้จริง
+            </p>
+          </div>
+        `;
+        
+        // อัปเดต UI ให้แสดง real provider section
+        const realProviderSection = document.getElementById('realProviderSection');
+        if (realProviderSection) {
+          realProviderSection.style.display = 'block';
+        }
+      }
+
+
+      // Linked Providers Management Functions
+
+      /**
+       * Load and display linked providers for Firebase user
+       * โหลดและแสดง linked providers สำหรับผู้ใช้ Firebase
+       */
+      async function loadLinkedProviders(firebaseUid) {
+        try {
+          console.log('🔗 Loading linked providers for user:', firebaseUid);
+          
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/linked-accounts/${firebaseUid}`);
+          const data = await response.json();
+          
+          if (data.success && data.linkedAccounts) {
+            displayLinkedProviders(data.linkedAccounts.providers, firebaseUid);
+          } else {
+            console.error('❌ Failed to load linked providers:', data.error);
+          }
+        } catch (error) {
+          console.error('❌ Error loading linked providers:', error);
+        }
+      }
+
+      /**
+       * Display linked providers in UI
+       * แสดง linked providers ใน UI
+       */
+      function displayLinkedProviders(providers, firebaseUid) {
+        const linkedProvidersSection = document.getElementById('linkedProvidersSection');
+        const linkedProvidersList = document.getElementById('linkedProvidersList');
+        
+        if (!linkedProvidersSection || !linkedProvidersList) {
+          console.error('❌ Linked providers section not found');
+          return;
+        }
+
+        if (providers.length === 0) {
+          linkedProvidersList.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">ไม่มี linked providers</p>';
+          linkedProvidersSection.style.display = 'none';
+          return;
+        }
+
+        // Show the section
+        linkedProvidersSection.style.display = 'block';
+
+        // Generate provider cards
+        linkedProvidersList.innerHTML = providers.map(provider => {
+          const icon = getProviderIcon(provider.providerId);
+          const name = getProviderDisplayName(provider.providerId);
+          const isLastProvider = providers.length === 1;
+          const statusClass = isLastProvider ? 'last' : 'linked';
+          const statusText = isLastProvider ? 'Provider เดียวที่เหลือ' : 'เชื่อมต่อแล้ว';
+
+          return `
+            <div class="linked-provider-card" data-provider-id="${provider.providerId}">
+              <div class="provider-info">
+                <div class="provider-icon-large" style="background-color: ${getProviderColor(provider.providerId)};">
+                  ${icon}
+                </div>
+                <div class="provider-details">
+                  <h4>${name}</h4>
+                  <p>${provider.email || 'ไม่มี email'}</p>
+                  <span class="provider-status ${statusClass}">${statusText}</span>
+                </div>
+              </div>
+              <div class="provider-actions">
+                <button 
+                  class="unlink-btn" 
+                  data-provider-id="${provider.providerId}"
+                  data-firebase-uid="${firebaseUid}"
+                  ${isLastProvider ? 'disabled' : ''}
+                  ${isLastProvider ? 'title="ไม่สามารถ unlink provider สุดท้ายได้"' : ''}
+                >
+                  ${isLastProvider ? 'ไม่สามารถยกเลิกได้' : 'ยกเลิกการเชื่อมต่อ'}
+                </button>
+              </div>
+              <div class="unlink-confirmation" id="confirmation-${provider.providerId}">
+                <p><strong>⚠️ ยืนยันการยกเลิกการเชื่อมต่อ</strong></p>
+                <p>คุณแน่ใจหรือไม่ที่จะยกเลิกการเชื่อมต่อ ${name}?</p>
+                <div class="confirmation-buttons">
+                  <button class="confirm-unlink" data-provider-id="${provider.providerId}" data-firebase-uid="${firebaseUid}">
+                    ยืนยัน
+                  </button>
+                  <button class="cancel-unlink" data-provider-id="${provider.providerId}">
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Add event listeners for unlink buttons
+        addUnlinkEventListeners();
+      }
+
+      /**
+       * Add event listeners for unlink functionality
+       * เพิ่ม event listeners สำหรับการ unlink
+       */
+      function addUnlinkEventListeners() {
+        // Unlink button click
+        document.querySelectorAll('.unlink-btn:not([disabled])').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const providerId = e.target.dataset.providerId;
+            const confirmation = document.getElementById(`confirmation-${providerId}`);
+            if (confirmation) {
+              confirmation.classList.add('show');
+            }
+          });
+        });
+
+        // Confirm unlink button click
+        document.querySelectorAll('.confirm-unlink').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const providerId = e.target.dataset.providerId;
+            const firebaseUid = e.target.dataset.firebaseUid;
+            await unlinkProvider(firebaseUid, providerId);
+          });
+        });
+
+        // Cancel unlink button click
+        document.querySelectorAll('.cancel-unlink').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const providerId = e.target.dataset.providerId;
+            const confirmation = document.getElementById(`confirmation-${providerId}`);
+            if (confirmation) {
+              confirmation.classList.remove('show');
+            }
+          });
+        });
+      }
+
+      /**
+       * Unlink provider from user account
+       * ยกเลิกการเชื่อมต่อ provider จากบัญชีผู้ใช้
+       * ใช้ Firebase Client SDK สำหรับการ unlink จริง
+       */
+      async function unlinkProvider(firebaseUid, providerId) {
+        try {
+          console.log('🔗 Unlinking provider:', { firebaseUid, providerId });
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อน');
+            return;
+          }
+
+          // ตรวจสอบว่า UID ตรงกันหรือไม่
+          if (currentUser.uid !== firebaseUid) {
+            alert('ไม่สามารถ unlink provider ของบัญชีอื่นได้');
+            return;
+          }
+
+          // ใช้ Firebase Client SDK ในการ unlink provider
+          try {
+            // ใช้ unlink function จาก Firebase v9+ modular SDK
+            const { unlink } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+            await unlink(currentUser, providerId);
+
+            console.log('✅ Provider unlinked successfully via Firebase Client SDK');
+            alert(`ยกเลิกการเชื่อมต่อ ${getProviderDisplayName(providerId)} สำเร็จ`);
+            
+            // อัปเดต custom claims ผ่าน server
+            await updateCustomClaimsAfterUnlink(firebaseUid, providerId);
+            
+            // Reload the page to refresh user info
+            window.location.reload();
+            
+          } catch (unlinkError) {
+            console.error('❌ Firebase Client SDK unlink error:', unlinkError);
+            
+            // ถ้า unlink ไม่สำเร็จ ให้ใช้ server-side fallback
+            console.log('🔄 Trying server-side fallback...');
+            await unlinkProviderServerSide(firebaseUid, providerId);
+          }
+          
+        } catch (error) {
+          console.error('❌ Error unlinking provider:', error);
+          alert(`เกิดข้อผิดพลาด: ${error.message}`);
+        }
+      }
+
+      /**
+       * Server-side unlink fallback
+       * ใช้เมื่อ client-side unlink ไม่สำเร็จ
+       */
+      async function unlinkProviderServerSide(firebaseUid, providerId) {
+        try {
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/unlink-provider`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              firebaseUid: firebaseUid,
+              providerId: providerId,
+              confirmUnlink: true
+            })
+          });
+
+          const data = await response.json();
+          
+          if (data.success) {
+            console.log('✅ Provider unlinked successfully via server:', data);
+            alert(`ยกเลิกการเชื่อมต่อ ${getProviderDisplayName(providerId)} สำเร็จ (server-side)`);
+            
+            // Reload the page to refresh user info
+            window.location.reload();
+          } else {
+            console.error('❌ Failed to unlink provider via server:', data.error);
+            alert(`เกิดข้อผิดพลาด: ${data.error}`);
+          }
+        } catch (error) {
+          console.error('❌ Error in server-side unlink:', error);
+          alert(`เกิดข้อผิดพลาด: ${error.message}`);
+        }
+      }
+
+      /**
+       * Update custom claims after unlink
+       * อัปเดต custom claims หลังจาก unlink
+       */
+      async function updateCustomClaimsAfterUnlink(firebaseUid, providerId) {
+        try {
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/unlink-provider`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              firebaseUid: firebaseUid,
+              providerId: providerId,
+              confirmUnlink: true
+            })
+          });
+
+          const data = await response.json();
+          
+          if (data.success) {
+            console.log('✅ Custom claims updated successfully');
+          } else {
+            console.warn('⚠️ Failed to update custom claims:', data.error);
+          }
+        } catch (error) {
+          console.warn('⚠️ Error updating custom claims:', error);
+        }
+      }
+
+      /**
+       * Get provider color for UI
+       * ดึงสีของ provider สำหรับ UI
+       */
+      function getProviderColor(providerId) {
+        const providerColors = {
+          'google.com': '#4285F4',
+          'apple.com': '#000000',
+          'line.com': '#00C300',
+          'facebook.com': '#1877F2',
+          'twitter.com': '#1DA1F2',
+          'github.com': '#333333',
+          'microsoft.com': '#0078D4',
+          'yahoo.com': '#720E9E',
+          'password': '#6C757D'
+        };
+        return providerColors[providerId] || '#6C757D';
+      }
+
+      // Handle logout
+      const logoutBtn = document.getElementById("logoutBtn");
+      if (logoutBtn) {
+        logoutBtn.addEventListener("click", async () => {
+          try {
+            // Sign out from Firebase Auth
+            await auth.signOut();
+
+            // Clear LINE data
+            localStorage.removeItem("lineProfile");
+            localStorage.removeItem("lineIdTokenData");
+            localStorage.removeItem("lineUser");
+            localStorage.removeItem("lineIdToken");
+            localStorage.removeItem("lineAccessToken"); // Clear access token on logout
+            
+            // Clear LINE Simple data
+            localStorage.removeItem("lineSimpleSuccess");
+            localStorage.removeItem("lineSimpleIdToken");
+            localStorage.removeItem("lineSimpleAccessToken");
+
+            // Hide email form if it's showing
+            const emailForm = document.getElementById('emailAuthForm');
+            if (emailForm) {
+              emailForm.classList.remove('show');
+            }
+
+            console.log("✅ User signed out successfully");
+
+            // Refresh page to update UI
+            window.location.reload();
+          } catch (error) {
+            console.error("❌ Logout error:", error);
+          }
+        });
+      }
+
+      // Add Enter key support for email forms
+      document.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const emailForm = document.getElementById('emailAuthForm');
+          if (emailForm && emailForm.classList.contains('show')) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            if (loginForm && loginForm.style.display !== 'none') {
+              // In login form
+              const signInBtn = document.getElementById('signInBtn');
+              if (signInBtn) signInBtn.click();
+            } else if (registerForm && registerForm.style.display !== 'none') {
+              // In register form
+              const signUpBtn = document.getElementById('signUpBtn');
+              if (signUpBtn) signUpBtn.click();
+            }
+          }
+        }
+      });
+
+      // Real Provider Event Listeners
+      // เพิ่ม event listeners สำหรับปุ่ม provider จริง
+      
+      // Check Providers Button
+      const checkProvidersBtn = document.getElementById('checkProvidersBtn');
+      if (checkProvidersBtn) {
+        checkProvidersBtn.addEventListener('click', () => {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            checkFirebaseProviders(currentUser);
+          } else {
+            alert('กรุณาล็อกอินก่อนที่จะตรวจสอบ providers');
+          }
+        });
+      }
+      
+      // Real Google Provider Link Button
+      const realGoogleLinkBtn = document.getElementById('realGoogleLinkBtn');
+      if (realGoogleLinkBtn) {
+        realGoogleLinkBtn.addEventListener('click', async () => {
+          await realGoogleProviderLink();
+        });
+      }
+      
+      // Real Apple Provider Link Button
+      const realAppleLinkBtn = document.getElementById('realAppleLinkBtn');
+      if (realAppleLinkBtn) {
+        realAppleLinkBtn.addEventListener('click', async () => {
+          await realAppleProviderLink();
+        });
+      }
+      
+      // Real LINE Provider Link Button
+      const realLineLinkBtn = document.getElementById('realLineLinkBtn');
+      if (realLineLinkBtn) {
+        realLineLinkBtn.addEventListener('click', async () => {
+          await realLineProviderLink();
+        });
+      }
+
+    </script>
+  </body>
+</html>
