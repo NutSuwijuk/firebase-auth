@@ -413,6 +413,103 @@
         height: 20px;
       }
 
+      /* User Record Display Styles */
+      .user-record-section {
+        margin-top: 20px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border: 1px solid #e9ecef;
+      }
+
+      .user-record-section h4 {
+        color: #333;
+        margin-bottom: 15px;
+        font-size: 18px;
+        text-align: center;
+      }
+
+      .user-record-content {
+        display: grid;
+        gap: 15px;
+      }
+
+      .data-section {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        border-left: 4px solid #007bff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      .data-section h5 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .data-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+      }
+
+      .data-item:last-child {
+        border-bottom: none;
+      }
+
+      .data-label {
+        font-weight: 600;
+        color: #555;
+        min-width: 150px;
+      }
+
+      .data-value {
+        color: #333;
+        word-break: break-all;
+        text-align: right;
+        flex: 1;
+      }
+
+      .verification-status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-left: 10px;
+      }
+
+      .verified {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .not-verified {
+        background: #f8d7da;
+        color: #721c24;
+      }
+
+      .unknown {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .raw-data-textarea {
+        width: 100%;
+        height: 120px;
+        font-size: 10px;
+        font-family: monospace;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 5px;
+        resize: vertical;
+        margin-top: 5px;
+      }
+
       /* Linked Providers Styles */
       .linked-provider-card {
         background: #f8f9fa;
@@ -705,7 +802,50 @@
           <div id="backendSyncInfo"></div>
         </div>
 
+        <!-- User Record Display Section -->
+        <div id="userRecordSection" class="user-record-section" style="display: none;">
+          <h4>📊 User Record Details</h4>
+          <div class="user-record-content">
+            <div class="data-section">
+              <h5>👤 Basic Information</h5>
+              <div id="userRecordBasicInfo"></div>
+            </div>
+            
+            <div class="data-section">
+              <h5>📧 Email Information</h5>
+              <div id="userRecordEmailInfo"></div>
+            </div>
+            
+            <div class="data-section">
+              <h5>📱 Phone Information</h5>
+              <div id="userRecordPhoneInfo"></div>
+            </div>
+            
+            <div class="data-section">
+              <h5>🔗 Provider Information</h5>
+              <div id="userRecordProviderInfo"></div>
+            </div>
+            
+            <div class="data-section">
+              <h5>🔍 Raw Data</h5>
+              <div id="userRecordRawData"></div>
+            </div>
+            
+            <div class="data-section">
+              <h5>📋 Trust Analysis</h5>
+              <div id="userRecordSummaryInfo"></div>
+            </div>
+          </div>
+        </div>
+
         <div style="margin-top: 20px">
+          <button
+            id="showUserRecordBtn"
+            class="button secondary"
+            style="margin-right: 10px;"
+          >
+            📊 แสดง User Record
+          </button>
           <button
             id="switchAccountBtn"
             class="button secondary"
@@ -1861,6 +2001,484 @@
       window.getProviderIcon = getProviderIcon;
       window.getProviderColor = getProviderColor;
 
+      // User Record Display Functions
+      // ฟังก์ชันสำหรับแสดงข้อมูล user record แบบละเอียด
+      
+      /**
+       * สร้าง data item สำหรับแสดงใน user record
+       * @param {string} label - ป้ายกำกับข้อมูล
+       * @param {string} value - ค่าข้อมูล
+       * @param {string} status - สถานะการยืนยัน (verified, not-verified, unknown)
+       * @returns {HTMLElement} - HTML element ของ data item
+       */
+      function createUserRecordDataItem(label, value, status = null) {
+        const item = document.createElement('div');
+        item.className = 'data-item';
+        
+        const labelElement = document.createElement('span');
+        labelElement.className = 'data-label';
+        labelElement.textContent = label;
+        
+        const valueElement = document.createElement('span');
+        valueElement.className = 'data-value';
+        
+        if (status) {
+          const statusElement = document.createElement('span');
+          statusElement.className = `verification-status ${status}`;
+          statusElement.textContent = status === 'verified' ? '✅ Verified' : 
+                                    status === 'not-verified' ? '❌ Not Verified' : '❓ Unknown';
+          valueElement.appendChild(statusElement);
+          valueElement.appendChild(document.createTextNode(' - '));
+        }
+        
+        valueElement.appendChild(document.createTextNode(value || 'N/A'));
+        item.appendChild(labelElement);
+        item.appendChild(valueElement);
+        return item;
+      }
+
+      /**
+       * ดึงข้อมูล user record จาก Firebase Admin SDK
+       * @param {string} firebaseUid - Firebase user UID
+       * @returns {Promise<Object>} User record จาก Firebase Admin SDK
+       */
+      async function fetchUserRecordFromFirebase(firebaseUid) {
+        try {
+          // ใช้ LOCAL_SERVICE_URL ที่กำหนดไว้แล้วในไฟล์
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/user-record/${firebaseUid}`);
+          const data = await response.json();
+          
+          if (data.success && data.userRecord) {
+            return data.userRecord;
+          } else {
+            throw new Error(data.error || 'Failed to fetch user record');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching user record from Firebase:', error);
+          throw error;
+        }
+      }
+
+      /**
+       * แปลงข้อมูล user record เป็นรูปแบบที่ต้องการ
+       * @param {Object} adminUserRecord - User record จาก Firebase Admin SDK
+       * @param {Object} clientUser - User object จาก Client SDK
+       * @returns {Object} User record ในรูปแบบที่ต้องการ
+       */
+      function formatUserRecord(adminUserRecord, clientUser) {
+        // กำหนด providerId เป็น 'firebase' (default)
+        let providerId = 'firebase';
+        let rawId = clientUser?.uid || adminUserRecord?.uid || '';
+        
+        // หา primary provider (provider แรก) เพื่อหา rawId
+        const providerData = adminUserRecord?.providerData || clientUser?.providerData || [];
+        if (providerData.length > 0) {
+          const primaryProvider = providerData[0];
+          // providerId ใช้ 'firebase' เป็น default
+          // rawId จะเป็น uid ของ provider หลัก (เช่น LINE user ID, Google user ID)
+          rawId = primaryProvider.uid || rawId;
+        }
+        
+        // ถ้ามี CustomClaims ที่ระบุ providerId ให้ใช้ค่าเหล่านั้น
+        const customClaims = adminUserRecord?.customClaims || {};
+        if (customClaims.providerId) {
+          // ใช้ providerId จาก customClaims ถ้ามี
+          // แต่ rawId ยังคงมาจาก provider.uid
+        }
+        
+        // สร้าง ProviderUserInfo array
+        const providerUserInfo = providerData.map(provider => ({
+          displayName: provider.displayName || null,
+          email: provider.email || null,
+          photoUrl: provider.photoURL || provider.photoUrl || null,
+          providerId: provider.providerId || null,
+          rawId: provider.uid || null
+        })).filter(provider => provider.providerId !== null);
+        
+        // สร้าง user record object ในรูปแบบที่ต้องการ
+        const formattedRecord = {
+          displayName: adminUserRecord?.displayName || clientUser?.displayName || null,
+          email: adminUserRecord?.email || clientUser?.email || null,
+          photoUrl: adminUserRecord?.photoURL || adminUserRecord?.photoUrl || clientUser?.photoURL || null,
+          providerId: providerId,
+          rawId: rawId,
+          CustomClaims: adminUserRecord?.customClaims || customClaims || {},
+          Disabled: adminUserRecord?.disabled !== undefined ? adminUserRecord.disabled : false,
+          EmailVerified: adminUserRecord?.emailVerified !== undefined ? adminUserRecord.emailVerified : 
+                         (clientUser?.emailVerified !== undefined ? clientUser.emailVerified : false),
+          ProviderUserInfo: providerUserInfo
+        };
+        
+        // ถ้า CustomClaims ว่างเปล่าให้ลบออก
+        if (formattedRecord.CustomClaims && Object.keys(formattedRecord.CustomClaims).length === 0) {
+          delete formattedRecord.CustomClaims;
+        }
+        
+        // ถ้า ProviderUserInfo ว่างเปล่าให้ลบออก
+        if (formattedRecord.ProviderUserInfo && formattedRecord.ProviderUserInfo.length === 0) {
+          delete formattedRecord.ProviderUserInfo;
+        }
+        
+        // ลบค่าที่เป็น null
+        Object.keys(formattedRecord).forEach(key => {
+          if (formattedRecord[key] === null) {
+            delete formattedRecord[key];
+          }
+        });
+        
+        return formattedRecord;
+      }
+
+      /**
+       * แสดงข้อมูล user record สำหรับ Firebase user
+       * @param {Object} user - Firebase user object
+       * @param {string} provider - ชื่อ provider
+       * @param {boolean} useAdminSDK - ใช้ Firebase Admin SDK หรือไม่
+       */
+      async function displayFirebaseUserRecord(user, provider = 'firebase', useAdminSDK = false) {
+        const userRecordSection = document.getElementById('userRecordSection');
+        if (!userRecordSection) return;
+        
+        userRecordSection.style.display = 'block';
+
+        let adminUserRecord = null;
+        
+        // ถ้าต้องการใช้ Admin SDK ให้ดึงข้อมูลจาก backend
+        if (useAdminSDK && user.uid) {
+          try {
+            console.log('📊 Fetching user record from Firebase Admin SDK...');
+            adminUserRecord = await fetchUserRecordFromFirebase(user.uid);
+            console.log('✅ Got user record from Firebase Admin SDK:', adminUserRecord);
+          } catch (error) {
+            console.error('⚠️ Failed to fetch from Admin SDK, using client-side data:', error);
+            // ใช้ข้อมูลจาก client-side แทน
+          }
+        }
+
+        // ใช้ข้อมูลจาก Admin SDK ถ้ามี ไม่เช่นนั้นใช้ข้อมูลจาก client
+        const displayData = adminUserRecord || user;
+
+        // Basic Info
+        const basicInfo = document.getElementById('userRecordBasicInfo');
+        basicInfo.innerHTML = '';
+        basicInfo.appendChild(createUserRecordDataItem('UID', displayData.uid || user.uid));
+        basicInfo.appendChild(createUserRecordDataItem('Display Name', displayData.displayName || user.displayName));
+        basicInfo.appendChild(createUserRecordDataItem('Provider', provider));
+        
+        // เพิ่มข้อมูลจาก Admin SDK ถ้ามี
+        if (adminUserRecord) {
+          if (adminUserRecord.metadata) {
+            basicInfo.appendChild(createUserRecordDataItem('Creation Time', adminUserRecord.metadata.creationTime || 'N/A'));
+            basicInfo.appendChild(createUserRecordDataItem('Last Sign In', adminUserRecord.metadata.lastSignInTime || 'N/A'));
+            basicInfo.appendChild(createUserRecordDataItem('Last Refresh', adminUserRecord.metadata.lastRefreshTime || 'N/A'));
+          }
+          if (adminUserRecord.disabled !== undefined) {
+            basicInfo.appendChild(createUserRecordDataItem('Account Disabled', adminUserRecord.disabled ? 'Yes' : 'No'));
+          }
+        }
+
+        // Email Info
+        const emailInfo = document.getElementById('userRecordEmailInfo');
+        emailInfo.innerHTML = '';
+        
+        const displayEmail = displayData.email || user.email;
+        if (displayEmail) {
+          const emailVerified = displayData.emailVerified !== undefined ? displayData.emailVerified : 
+                               (user.emailVerified !== undefined ? user.emailVerified : 'unknown');
+          const emailStatus = emailVerified === true ? 'verified' : 
+                            emailVerified === false ? 'not-verified' : 'unknown';
+          emailInfo.appendChild(createUserRecordDataItem('Email', displayEmail, emailStatus));
+        } else {
+          emailInfo.appendChild(createUserRecordDataItem('Email', 'Not provided'));
+        }
+
+        // Phone Info
+        const phoneInfo = document.getElementById('userRecordPhoneInfo');
+        phoneInfo.innerHTML = '';
+        
+        const displayPhone = displayData.phoneNumber || user.phoneNumber;
+        if (displayPhone) {
+          phoneInfo.appendChild(createUserRecordDataItem('Phone Number', displayPhone));
+          phoneInfo.appendChild(createUserRecordDataItem('Phone Verification Status', 'Unknown (Firebase doesn\'t expose this)', 'unknown'));
+        } else {
+          phoneInfo.appendChild(createUserRecordDataItem('Phone Number', 'Not provided'));
+          phoneInfo.appendChild(createUserRecordDataItem('Phone Verification Status', 'N/A'));
+        }
+
+        // Provider Info
+        const providerInfo = document.getElementById('userRecordProviderInfo');
+        providerInfo.innerHTML = '';
+        
+        const displayProviderData = (adminUserRecord && adminUserRecord.providerData) || user.providerData || [];
+        
+        if (displayProviderData.length > 0) {
+          displayProviderData.forEach((provider, index) => {
+            providerInfo.appendChild(createUserRecordDataItem(`Provider ${index + 1}`, provider.providerId));
+            if (provider.email) {
+              providerInfo.appendChild(createUserRecordDataItem(`Provider ${index + 1} Email`, provider.email));
+            }
+            if (provider.phoneNumber) {
+              providerInfo.appendChild(createUserRecordDataItem(`Provider ${index + 1} Phone`, provider.phoneNumber));
+            }
+            if (provider.displayName) {
+              providerInfo.appendChild(createUserRecordDataItem(`Provider ${index + 1} Display Name`, provider.displayName));
+            }
+            if (provider.photoURL) {
+              providerInfo.appendChild(createUserRecordDataItem(`Provider ${index + 1} Photo URL`, provider.photoURL));
+            }
+          });
+        } else {
+          providerInfo.appendChild(createUserRecordDataItem('Linked Providers', 'None'));
+        }
+        
+        // แสดง Custom Claims ถ้ามี (จาก Admin SDK)
+        if (adminUserRecord && adminUserRecord.customClaims && Object.keys(adminUserRecord.customClaims).length > 0) {
+          providerInfo.appendChild(createUserRecordDataItem('Custom Claims Count', Object.keys(adminUserRecord.customClaims).length.toString()));
+        }
+
+        // Raw Data
+        const rawData = document.getElementById('userRecordRawData');
+        rawData.innerHTML = '';
+        
+        // แสดงข้อมูลในรูปแบบที่ต้องการ (Formatted User Record)
+        const formattedRecord = formatUserRecord(adminUserRecord, user);
+        const formattedRecordTextarea = document.createElement('textarea');
+        formattedRecordTextarea.className = 'raw-data-textarea';
+        formattedRecordTextarea.style.height = '250px';
+        formattedRecordTextarea.value = JSON.stringify(formattedRecord, null, 2);
+        formattedRecordTextarea.readOnly = true;
+        
+        const formattedRecordLabel = document.createElement('div');
+        formattedRecordLabel.innerHTML = '<strong>📋 Formatted User Record:</strong>';
+        rawData.appendChild(formattedRecordLabel);
+        rawData.appendChild(formattedRecordTextarea);
+        
+        // แสดงข้อมูลจาก Admin SDK ถ้ามี
+        if (adminUserRecord && adminUserRecord.userRecord) {
+          const adminRecordTextarea = document.createElement('textarea');
+          adminRecordTextarea.className = 'raw-data-textarea';
+          adminRecordTextarea.style.height = '200px';
+          adminRecordTextarea.value = JSON.stringify(adminUserRecord.userRecord, null, 2);
+          adminRecordTextarea.readOnly = true;
+          
+          const adminRecordLabel = document.createElement('div');
+          adminRecordLabel.innerHTML = '<strong>🔥 Firebase Admin SDK User Record (Full):</strong>';
+          adminRecordLabel.style.marginTop = '15px';
+          rawData.appendChild(adminRecordLabel);
+          rawData.appendChild(adminRecordTextarea);
+          
+          // Custom Claims
+          if (adminUserRecord.customClaims && Object.keys(adminUserRecord.customClaims).length > 0) {
+            const customClaimsTextarea = document.createElement('textarea');
+            customClaimsTextarea.className = 'raw-data-textarea';
+            customClaimsTextarea.style.height = '150px';
+            customClaimsTextarea.value = JSON.stringify(adminUserRecord.customClaims, null, 2);
+            customClaimsTextarea.readOnly = true;
+            
+            const customClaimsLabel = document.createElement('div');
+            customClaimsLabel.innerHTML = '<strong>📋 Custom Claims (Raw):</strong>';
+            customClaimsLabel.style.marginTop = '15px';
+            rawData.appendChild(customClaimsLabel);
+            rawData.appendChild(customClaimsTextarea);
+          }
+        }
+        
+        // แสดงข้อมูลจาก Client SDK
+        const userObjectTextarea = document.createElement('textarea');
+        userObjectTextarea.className = 'raw-data-textarea';
+        userObjectTextarea.style.height = '150px';
+        userObjectTextarea.value = JSON.stringify(user, null, 2);
+        userObjectTextarea.readOnly = true;
+        
+        const userObjectLabel = document.createElement('div');
+        userObjectLabel.innerHTML = adminUserRecord ? 
+          '<strong>📱 Client SDK User Object (for comparison):</strong>' : 
+          '<strong>Raw User Object:</strong>';
+        userObjectLabel.style.marginTop = '15px';
+        rawData.appendChild(userObjectLabel);
+        rawData.appendChild(userObjectTextarea);
+        
+        if (user.providerData && user.providerData.length > 0) {
+          const providerDataTextarea = document.createElement('textarea');
+          providerDataTextarea.className = 'raw-data-textarea';
+          providerDataTextarea.style.height = '120px';
+          providerDataTextarea.value = JSON.stringify(user.providerData, null, 2);
+          providerDataTextarea.readOnly = true;
+          
+          const providerDataLabel = document.createElement('div');
+          providerDataLabel.innerHTML = '<strong>Raw Provider Data:</strong>';
+          providerDataLabel.style.marginTop = '15px';
+          rawData.appendChild(providerDataLabel);
+          rawData.appendChild(providerDataTextarea);
+        }
+
+        // Summary
+        const summaryInfo = document.getElementById('userRecordSummaryInfo');
+        summaryInfo.innerHTML = '';
+        
+        // Email trust analysis
+        let emailTrust = '❓ Unknown';
+        const emailForAnalysis = displayData.email || user.email;
+        const emailVerifiedForAnalysis = displayData.emailVerified !== undefined ? displayData.emailVerified : user.emailVerified;
+        
+        if (emailForAnalysis) {
+          if (emailVerifiedForAnalysis === true) {
+            emailTrust = '✅ Trusted (Verified by Firebase)';
+          } else if (emailVerifiedForAnalysis === false) {
+            emailTrust = '❌ Not Trusted (Not verified)';
+          } else {
+            emailTrust = '⚠️ Partially Trusted (Email present but verification status unknown)';
+          }
+        } else {
+          emailTrust = '❌ Not Available';
+        }
+
+        // Phone trust analysis
+        let phoneTrust = '❓ Unknown';
+        const phoneForAnalysis = displayData.phoneNumber || user.phoneNumber;
+        if (phoneForAnalysis) {
+          phoneTrust = '⚠️ Partially Trusted (Phone present but verification status not exposed by Firebase)';
+        } else {
+          phoneTrust = '❌ Not Available';
+        }
+
+        // Provider-specific analysis
+        let providerTrust = '❓ Unknown';
+        const providerDataForAnalysis = displayProviderData || user.providerData || [];
+        if (providerDataForAnalysis.length > 0) {
+          const primaryProvider = providerDataForAnalysis[0].providerId;
+          if (primaryProvider === 'google.com') {
+            providerTrust = '✅ High Trust (Google verifies email and phone)';
+          } else if (primaryProvider === 'apple.com') {
+            providerTrust = '✅ High Trust (Apple verifies email)';
+          } else if (primaryProvider === 'line.com' || primaryProvider === 'oidc.line') {
+            providerTrust = '⚠️ Medium Trust (LINE provides email but verification status unclear)';
+          } else {
+            providerTrust = '⚠️ Medium Trust (Provider verification varies)';
+          }
+        }
+
+        summaryInfo.appendChild(createUserRecordDataItem('Email Trust Level', emailTrust));
+        summaryInfo.appendChild(createUserRecordDataItem('Phone Trust Level', phoneTrust));
+        summaryInfo.appendChild(createUserRecordDataItem('Provider Trust Level', providerTrust));
+        
+        // เพิ่มข้อมูลเพิ่มเติมจาก Admin SDK
+        if (adminUserRecord) {
+          summaryInfo.appendChild(createUserRecordDataItem('Data Source', '🔥 Firebase Admin SDK (Full Record)'));
+          if (adminUserRecord.metadata) {
+            const creationTime = adminUserRecord.metadata.creationTime ? new Date(adminUserRecord.metadata.creationTime).toLocaleString('th-TH') : 'N/A';
+            const lastSignIn = adminUserRecord.metadata.lastSignInTime ? new Date(adminUserRecord.metadata.lastSignInTime).toLocaleString('th-TH') : 'N/A';
+            summaryInfo.appendChild(createUserRecordDataItem('Account Created', creationTime));
+            summaryInfo.appendChild(createUserRecordDataItem('Last Sign In Time', lastSignIn));
+          }
+          if (adminUserRecord.customClaims && Object.keys(adminUserRecord.customClaims).length > 0) {
+            summaryInfo.appendChild(createUserRecordDataItem('Has Custom Claims', `Yes (${Object.keys(adminUserRecord.customClaims).length} claims)`));
+          }
+        } else {
+          summaryInfo.appendChild(createUserRecordDataItem('Data Source', '📱 Client SDK (Limited)'));
+        }
+      }
+
+      /**
+       * แสดงข้อมูล user record สำหรับ LINE user
+       * @param {Object} lineUser - LINE user object
+       * @param {Object} lineProfile - LINE profile object
+       * @param {Object} idTokenData - LINE ID token data
+       */
+      function displayLineUserRecord(lineUser, lineProfile, idTokenData) {
+        const userRecordSection = document.getElementById('userRecordSection');
+        if (!userRecordSection) return;
+        
+        userRecordSection.style.display = 'block';
+
+        // Basic Info
+        const basicInfo = document.getElementById('userRecordBasicInfo');
+        basicInfo.innerHTML = '';
+        basicInfo.appendChild(createUserRecordDataItem('UID', lineUser.uid));
+        basicInfo.appendChild(createUserRecordDataItem('Display Name', lineUser.displayName));
+        basicInfo.appendChild(createUserRecordDataItem('Provider', 'LINE'));
+
+        // Email Info
+        const emailInfo = document.getElementById('userRecordEmailInfo');
+        emailInfo.innerHTML = '';
+        
+        if (lineUser.email) {
+          emailInfo.appendChild(createUserRecordDataItem('Email', lineUser.email, 'unknown'));
+          emailInfo.appendChild(createUserRecordDataItem('Email Verification Note', 'LINE doesn\'t expose email verification status'));
+        } else {
+          emailInfo.appendChild(createUserRecordDataItem('Email', 'Not provided'));
+        }
+
+        // Phone Info
+        const phoneInfo = document.getElementById('userRecordPhoneInfo');
+        phoneInfo.innerHTML = '';
+        phoneInfo.appendChild(createUserRecordDataItem('Phone Number', 'Not provided by LINE'));
+        phoneInfo.appendChild(createUserRecordDataItem('Phone Verification Status', 'N/A'));
+
+        // Provider Info
+        const providerInfo = document.getElementById('userRecordProviderInfo');
+        providerInfo.innerHTML = '';
+        providerInfo.appendChild(createUserRecordDataItem('LINE User ID', lineProfile.userId));
+        providerInfo.appendChild(createUserRecordDataItem('LINE Display Name', lineProfile.displayName));
+        if (lineProfile.statusMessage) {
+          providerInfo.appendChild(createUserRecordDataItem('LINE Status Message', lineProfile.statusMessage));
+        }
+
+        // Raw Data
+        const rawData = document.getElementById('userRecordRawData');
+        rawData.innerHTML = '';
+        
+        const lineUserTextarea = document.createElement('textarea');
+        lineUserTextarea.className = 'raw-data-textarea';
+        lineUserTextarea.value = JSON.stringify(lineUser, null, 2);
+        lineUserTextarea.readOnly = true;
+        
+        const lineUserLabel = document.createElement('div');
+        lineUserLabel.innerHTML = '<strong>LINE User Object:</strong>';
+        rawData.appendChild(lineUserLabel);
+        rawData.appendChild(lineUserTextarea);
+        
+        const lineProfileTextarea = document.createElement('textarea');
+        lineProfileTextarea.className = 'raw-data-textarea';
+        lineProfileTextarea.value = JSON.stringify(lineProfile, null, 2);
+        lineProfileTextarea.readOnly = true;
+        
+        const lineProfileLabel = document.createElement('div');
+        lineProfileLabel.innerHTML = '<strong>LINE Profile:</strong>';
+        rawData.appendChild(lineProfileLabel);
+        rawData.appendChild(lineProfileTextarea);
+        
+        if (idTokenData) {
+          const idTokenTextarea = document.createElement('textarea');
+          idTokenTextarea.className = 'raw-data-textarea';
+          idTokenTextarea.value = JSON.stringify(idTokenData, null, 2);
+          idTokenTextarea.readOnly = true;
+          
+          const idTokenLabel = document.createElement('div');
+          idTokenLabel.innerHTML = '<strong>LINE ID Token Data:</strong>';
+          rawData.appendChild(idTokenLabel);
+          rawData.appendChild(idTokenTextarea);
+        }
+
+        // Summary
+        const summaryInfo = document.getElementById('userRecordSummaryInfo');
+        summaryInfo.innerHTML = '';
+        
+        let emailTrust = '❓ Unknown';
+        if (lineUser.email) {
+          emailTrust = '⚠️ Partially Trusted (Email present but verification status not provided by LINE)';
+        } else {
+          emailTrust = '❌ Not Available';
+        }
+
+        let phoneTrust = '❌ Not Available (LINE doesn\'t provide phone numbers)';
+        let providerTrust = '⚠️ Medium Trust (LINE provides email but verification status unclear)';
+
+        summaryInfo.appendChild(createUserRecordDataItem('Email Trust Level', emailTrust));
+        summaryInfo.appendChild(createUserRecordDataItem('Phone Trust Level', phoneTrust));
+        summaryInfo.appendChild(createUserRecordDataItem('Provider Trust Level', providerTrust));
+      }
+
       // Helper function to get provider icons
       function getProviderIcon(providerId) {
         const providerIcons = {
@@ -1890,6 +2508,51 @@
 
       // Check user status on page load
       checkUserStatus();
+
+      // User Record Display Event Listeners
+      // Event listeners สำหรับการแสดง user record
+      
+      // ปุ่มแสดง User Record
+      const showUserRecordBtn = document.getElementById('showUserRecordBtn');
+      if (showUserRecordBtn) {
+        showUserRecordBtn.addEventListener('click', async () => {
+          // ตรวจสอบว่ามี user ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          
+          // ตรวจสอบ LINE Simple Login
+          const lineSimpleSuccess = localStorage.getItem('lineSimpleSuccess');
+          const lineSimpleIdToken = localStorage.getItem('lineSimpleIdToken');
+          const lineSimpleAccessToken = localStorage.getItem('lineSimpleAccessToken');
+          
+          // ตรวจสอบ LINE Login
+          const lineUser = localStorage.getItem('lineUser');
+          const lineProfile = localStorage.getItem('lineProfile');
+          const lineIdTokenData = localStorage.getItem('lineIdTokenData');
+          
+          if (currentUser) {
+            // Firebase user ล็อกอินอยู่
+            console.log('📊 Displaying Firebase user record...');
+            // ใช้ Admin SDK เพื่อดึงข้อมูลแบบละเอียด
+            await displayFirebaseUserRecord(currentUser, 'Firebase', true);
+          } else if (lineUser && lineProfile) {
+            // LINE user ล็อกอินอยู่
+            console.log('📊 Displaying LINE user record...');
+            displayLineUserRecord(
+              JSON.parse(lineUser),
+              JSON.parse(lineProfile),
+              lineIdTokenData ? JSON.parse(lineIdTokenData) : null
+            );
+          } else if (lineSimpleSuccess && lineSimpleIdToken) {
+            // LINE Simple Login
+            console.log('📊 LINE Simple Login detected, but no detailed user record available');
+            alert('⚠️ LINE Simple Login ไม่มีข้อมูล user record แบบละเอียด\n\nกรุณาใช้ LINE Login แบบปกติเพื่อดูข้อมูล user record');
+          } else {
+            // ไม่มี user ล็อกอิน
+            console.log('📊 No user logged in');
+            alert('❌ ไม่มีผู้ใช้ล็อกอินอยู่\n\nกรุณาล็อกอินก่อนเพื่อดูข้อมูล user record');
+          }
+        });
+      }
       
 
       // Real Provider Functions
