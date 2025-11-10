@@ -115,12 +115,14 @@
             <strong>⚠️ วิธีตั้งค่า Apple Sign-In Return URLs:</strong>
             <p style="margin: 10px 0 0 0; font-size: 14px;">
                 <strong>Current Redirect URI:</strong> <code id="currentRedirectURI"></code><br>
+                <strong style="color: #d32f2f;">⚠️ สำคัญ:</strong> URL ด้านล่างนี้ถูก encode แล้ว (ช่องว่างเป็น %20) - <strong>ต้องคัดลอก URL นี้ไปใช้ใน Apple Developer Portal</strong><br>
                 <strong>วิธีแก้:</strong><br>
                 1. ไปที่ <a href="https://developer.apple.com/account/resources/identifiers/list/serviceId" target="_blank">Apple Developer Portal > Service IDs</a><br>
                 2. เลือก Service ID: <code>th.co.mfec.appsol.firebasetest</code><br>
                 3. เปิดใช้งาน "Sign in with Apple" และกด Configure<br>
-                4. ในส่วน "Website URLs" > "Return URLs" ให้เพิ่ม URL นี้:<br>
-                <code id="redirectURIToAdd"></code><br>
+                4. ในส่วน "Website URLs" > "Return URLs" ให้<strong style="color: #d32f2f;">คัดลอกและวาง URL นี้ (ต้องเป็น URL ที่ encode แล้ว):</strong><br>
+                <code id="redirectURIToAdd" style="background-color: #fff; padding: 5px; border: 1px solid #ccc; display: inline-block; word-break: break-all; font-weight: bold; color: #d32f2f;"></code><br>
+                <small style="color: #666;">💡 หมายเหตุ: ถ้า URL มีช่องว่าง จะถูก encode เป็น %20 (เช่น get%20idtoken.html)</small><br>
                 5. ในส่วน "Domains and Subdomains" ให้เพิ่ม domain:<br>
                 <code id="domainToAdd"></code><br>
                 6. Save และรอสักครู่ (อาจใช้เวลาสัก 2-3 นาที)
@@ -196,7 +198,18 @@
             const redirectURIToAddSpan = document.getElementById('redirectURIToAdd');
             const domainToAddSpan = document.getElementById('domainToAdd');
             
-            const redirectURI = window.location.origin + window.location.pathname;
+            // สร้าง redirect URI ที่ถูก encode อย่างถูกต้อง (เหมือนกับที่ใช้ใน signInWithApple)
+            let redirectURI;
+            try {
+                const urlObj = new URL(window.location.href);
+                const encodedPath = urlObj.pathname.split('/')
+                    .map(segment => segment ? encodeURIComponent(segment) : '')
+                    .join('/');
+                redirectURI = urlObj.origin + encodedPath;
+            } catch (e) {
+                // Fallback: ใช้ origin + pathname
+                redirectURI = window.location.origin + window.location.pathname;
+            }
             const domain = window.location.hostname;
             
             if (currentRedirectURISpan) {
@@ -338,10 +351,28 @@
                 // เริ่มต้น Apple Sign-In
                 // ตั้งค่า redirectURI ให้ตรงกับที่ตั้งค่าไว้ใน Apple Developer Portal
                 // ต้องตรงกับ Return URLs ที่ตั้งค่าไว้ใน Service ID configuration
-                const redirectURI = window.location.origin + window.location.pathname;
+                // สร้าง redirectURI ที่ถูก encode อย่างถูกต้อง
+                // ใช้ URL object เพื่อให้แน่ใจว่า pathname ถูก encode แล้ว (ช่องว่างเป็น %20)
+                let redirectURI;
+                try {
+                    // ใช้ URL ปัจจุบันและ encode pathname แต่ละ segment
+                    const urlObj = new URL(window.location.href);
+                    // Encode แต่ละ path segment (ไม่ encode slashes)
+                    const encodedPath = urlObj.pathname.split('/')
+                        .map(segment => segment ? encodeURIComponent(segment) : '')
+                        .join('/');
+                    redirectURI = urlObj.origin + encodedPath;
+                } catch (e) {
+                    // Fallback: ถ้า URL ไม่ valid ให้ใช้วิธีเดิม
+                    console.warn('Could not parse URL, using fallback:', e);
+                    redirectURI = window.location.origin + window.location.pathname;
+                }
+                
                 console.log('Apple Sign-In redirectURI:', redirectURI);
                 console.log('Current URL:', window.location.href);
                 console.log('Current Origin:', window.location.origin);
+                console.log('Pathname (decoded):', window.location.pathname);
+                console.log('Final redirectURI (for Apple config):', redirectURI);
                 
                 AppleID.auth.init({
                     clientId: APPLE_SERVICE_ID,
@@ -380,8 +411,10 @@
                         errorMessage.includes('redirect') || 
                         errorMessage.includes('Invalid web redirect url')) {
                         alert('❌ Error: Invalid redirect URL\n\n' +
+                              '⚠️ สำคัญ: URL ต้องถูก encode แล้ว (ช่องว่างเป็น %20)\n\n' +
                               'กรุณาตรวจสอบว่าได้ตั้งค่า Return URLs ใน Apple Developer Portal แล้ว\n\n' +
-                              'Return URL ที่ต้องตั้งค่า:\n' + redirectURI + '\n\n' +
+                              'Return URL ที่ต้องตั้งค่า (URL ที่ encode แล้ว):\n' + redirectURI + '\n\n' +
+                              '💡 หมายเหตุ: ถ้า URL มีช่องว่าง ต้องใช้ %20 แทน (เช่น get%20idtoken.html)\n\n' +
                               'ดูคำแนะนำในหน้าเว็บด้านบน');
                     } else {
                         alert('❌ เกิดข้อผิดพลาดในการ login ด้วย Apple:\n' + errorMessage);
