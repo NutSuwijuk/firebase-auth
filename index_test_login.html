@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google & Apple Login - Direct OAuth</title>
+  
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
+  <!-- Apple Sign In SDK -->
+  <script type="text/javascript" src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 16px;
+    }
+
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .button {
+      padding: 15px 30px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .button.google {
+      background: #4285f4;
+      color: white;
+    }
+
+    .button.google:hover:not(:disabled) {
+      background: #357ae8;
+    }
+
+    .button.apple {
+      background: #000000;
+      color: white;
+    }
+
+    .button.apple:hover:not(:disabled) {
+      background: #333333;
+    }
+
+    .button.logout {
+      background: #dc3545;
+      color: white;
+    }
+
+    .button.logout:hover {
+      background: #c82333;
+    }
+
+    .info-section {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .info-section h3 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .info-section p {
+      color: #666;
+      margin-bottom: 10px;
+      word-break: break-all;
+    }
+
+    .error-message {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      display: none;
+      border: 1px solid #f5c6cb;
+    }
+
+    textarea {
+      resize: vertical;
+      width: 100%;
+      height: 200px;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background: #f5f5f5;
+    }
+
+    .warning-box {
+      background: #fff3cd;
+      color: #856404;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ffc107;
+    }
+
+    .warning-box h4 {
+      margin-bottom: 10px;
+      color: #856404;
+    }
+
+    .warning-box p {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    .warning-box code {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+
+    .log-section {
+      margin-top: 20px;
+      padding: 15px;
+      background: #e7f3ff;
+      border-radius: 10px;
+      border: 1px solid #b3d9ff;
+    }
+
+    .log-section h4 {
+      color: #004085;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+
+    .log-content {
+      background: #ffffff;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 11px;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔐 Google & Apple Login</h1>
+      <p>ทดสอบการ Login ด้วย Google และ Apple (ไม่ผ่าน Firebase)</p>
+    </div>
+
+    <!-- Warning box สำหรับการตั้งค่า Client ID -->
+    <div id="clientIdWarning" class="warning-box" style="display: none;">
+      <h4>⚠️ ต้องตั้งค่า OAuth Client ID</h4>
+      <p>กรุณาแก้ไขโค้ดที่บรรทัด <code>const GOOGLE_CLIENT_ID = ...</code> และ <code>const APPLE_CLIENT_ID = ...</code></p>
+    </div>
+
+    <!-- ปุ่ม Login -->
+    <div class="button-container">
+      <button id="googleLoginBtn" class="button google" onclick="signInWithGoogle()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Login with Google
+      </button>
+
+      <button id="appleLoginBtn" class="button apple" onclick="signInWithApple()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+        </svg>
+        Login with Apple
+      </button>
+
+      <button id="logoutBtn" class="button logout" onclick="signOut()" style="display: none;">
+        Logout
+      </button>
+    </div>
+
+    <!-- แสดง Error Message -->
+    <div id="errorMessage" class="error-message"></div>
+
+    <!-- แสดงข้อมูลผู้ใช้ -->
+    <div id="userInfo" class="info-section"></div>
+
+    <!-- แสดง Token -->
+    <div id="tokenInfo" class="info-section"></div>
+
+    <!-- แสดง Log -->
+    <div id="logSection" class="log-section" style="display: none;">
+      <h4>📋 Console Logs (Token Information)</h4>
+      <div id="logContent" class="log-content"></div>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ ต้องตั้งค่า Client ID สำหรับ Google และ Apple
+    // สำหรับ Google: ไปที่ https://console.cloud.google.com/ > APIs & Services > Credentials
+    const GOOGLE_CLIENT_ID = '407047949381-8r5beccl81cd50jfebhiha6m6svbtqb6.apps.googleusercontent.com';
+    
+    // สำหรับ Apple: ต้องมี Apple Developer Account และสร้าง Service ID
+    // ไปที่ https://developer.apple.com/account/resources/identifiers/list/serviceId
+    const APPLE_CLIENT_ID = 'YOUR_APPLE_SERVICE_ID_HERE'; // เช่น: com.example.app
+    const APPLE_REDIRECT_URI = window.location.origin + window.location.pathname; // ใช้ origin ปัจจุบัน
+
+    // DOM Elements
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const appleLoginBtn = document.getElementById('appleLoginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const userInfo = document.getElementById('userInfo');
+    const tokenInfo = document.getElementById('tokenInfo');
+    const logSection = document.getElementById('logSection');
+    const logContent = document.getElementById('logContent');
+    const clientIdWarning = document.getElementById('clientIdWarning');
+
+    // ตัวแปรสำหรับเก็บ state
+    let googleSignInInitialized = false;
+    let currentProvider = null; // 'google' หรือ 'apple'
+    let allTokens = {}; // เก็บ token ทั้งหมด
+
+    /**
+     * ฟังก์ชันสำหรับเพิ่ม log ลงในหน้าเว็บ
+     * @param {string} message - ข้อความที่ต้องการ log
+     * @param {string} type - ประเภท log ('info', 'success', 'error', 'token')
+     */
+    function addLog(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString('th-TH');
+      const prefix = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'token' ? '🔑' : 'ℹ️';
+      const logLine = `[${timestamp}] ${prefix} ${message}\n`;
+      
+      // Log ไปที่ console
+      if (type === 'error') {
+        console.error(logLine.trim());
+      } else if (type === 'token') {
+        console.log('🔑 TOKEN:', logLine.trim());
+      } else {
+        console.log(logLine.trim());
+      }
+      
+      // เพิ่ม log ลงในหน้าเว็บ
+      if (logContent) {
+        logContent.textContent += logLine;
+        logSection.style.display = 'block';
+        // Scroll ไปที่ล่างสุด
+        logContent.scrollTop = logContent.scrollHeight;
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับ log token ทั้งหมด
+     * @param {Object} tokens - object ที่มี token ต่างๆ
+     * @param {string} provider - provider name ('google' หรือ 'apple')
+     */
+    function logAllTokens(tokens, provider) {
+      addLog(`=== ${provider.toUpperCase()} LOGIN TOKENS ===`, 'token');
+      addLog(`Provider: ${provider}`, 'token');
+      
+      // เก็บ token ไว้ใน allTokens
+      allTokens[provider] = tokens;
+      
+      // Log แต่ละ token
+      Object.keys(tokens).forEach(key => {
+        const value = tokens[key];
+        if (typeof value === 'string' && value.length > 100) {
+          // ถ้า token ยาวมาก ให้แสดงแค่ส่วนแรกและส่วนท้าย
+          addLog(`${key}: ${value.substring(0, 50)}...${value.substring(value.length - 20)} (length: ${value.length})`, 'token');
+        } else if (typeof value === 'object') {
+          addLog(`${key}: ${JSON.stringify(value, null, 2)}`, 'token');
+        } else {
+          addLog(`${key}: ${value}`, 'token');
+        }
+      });
+      
+      addLog(`=== END ${provider.toUpperCase()} TOKENS ===`, 'token');
+      addLog('', 'info');
+    }
+
+    /**
+     * ฟังก์ชันสำหรับจัดการ callback จาก Google Sign-In
+     * @param {Object} response - Response object จาก Google ที่มี credential
+     */
+    function handleGoogleSignIn(response) {
+      try {
+        addLog('Google Sign-In response received', 'info');
+        console.log('🔑 Google Sign-In response:', response);
+        
+        // ตรวจสอบว่ามี credential หรือไม่
+        if (!response || !response.credential) {
+          const error = 'Google Sign-In was cancelled or no credential received';
+          addLog(error, 'error');
+          showError(error);
+          return;
+        }
+
+        // เก็บ ID token
+        const idTokenValue = response.credential;
+        
+        // Decode JWT token เพื่อดึงข้อมูลผู้ใช้
+        let userInfoData = {};
+        let decodedToken = null;
+        
+        try {
+          const tokenParts = idTokenValue.split('.');
+          if (tokenParts.length === 3) {
+            decodedToken = {
+              header: JSON.parse(atob(tokenParts[0])),
+              payload: JSON.parse(atob(tokenParts[1])),
+              signature: tokenParts[2]
+            };
+            
+            userInfoData = {
+              email: decodedToken.payload.email || null,
+              name: decodedToken.payload.name || null,
+              picture: decodedToken.payload.picture || 'N/A',
+              given_name: decodedToken.payload.given_name || 'N/A',
+              family_name: decodedToken.payload.family_name || 'N/A',
+              email_verified: decodedToken.payload.email_verified || false,
+              sub: decodedToken.payload.sub || 'N/A',
+              iss: decodedToken.payload.iss || 'N/A',
+              aud: decodedToken.payload.aud || 'N/A',
+              exp: decodedToken.payload.exp || 'N/A',
+              iat: decodedToken.payload.iat || 'N/A'
+            };
+          }
+        } catch (decodeError) {
+          addLog('Could not decode token: ' + decodeError.message, 'error');
+          console.warn('⚠️ Could not decode token:', decodeError);
+        }
+
+        // สร้าง tokens object ที่มี token ทั้งหมด
+        const tokens = {
+          idToken: idTokenValue,
+          accessToken: null, // Google Identity Services ไม่ให้ access token โดยตรง
+          decodedToken: decodedToken,
+          rawResponse: response
+        };
+
+        // Log token ทั้งหมด
+        logAllTokens(tokens, 'google');
+
+        // แสดงผลลัพธ์บนหน้าเว็บ
+        displayUserInfo(userInfoData, tokens, 'google');
+        currentProvider = 'google';
+
+        addLog('Google Sign-In successful!', 'success');
+
+      } catch (error) {
+        addLog('Error during Google Sign-In: ' + error.toString(), 'error');
+        console.error('❌ General Exception during Google Sign-In:', error);
+        showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google: ' + error.toString());
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับจัดการ callback จาก Apple Sign-In
+     * @param {Object} event - Event object จาก Apple
+     */
+    function handleAppleSignIn(event) {
+      try {
+        addLog('Apple Sign-In response received', 'info');
+        console.log('🔑 Apple Sign-In response:', event);
+        
+        // ตรวจสอบว่ามี credential หรือไม่
+        if (!event || !event.detail) {
+          const error = 'Apple Sign-In was cancelled or no credential received';
+          addLog(error, 'error');
+          showError(error);
+          return;
+        }
+
+        const detail = event.detail;
+        
+        // เก็บ token จาก Apple
+        const idToken = detail.id_token || null;
+        const authorizationCode = detail.authorization?.code || null;
+        const user = detail.user || null;
+        const state = detail.state || null;
+
+        // Decode JWT token เพื่อดึงข้อมูลผู้ใช้ (ถ้ามี)
+        let userInfoData = {};
+        let decodedToken = null;
+        
+        if (idToken) {
+          try {
+            const tokenParts = idToken.split('.');
+            if (tokenParts.length === 3) {
+              decodedToken = {
+                header: JSON.parse(atob(tokenParts[0])),
+                payload: JSON.parse(atob(tokenParts[1])),
+                signature: tokenParts[2]
+              };
+              
+              userInfoData = {
+                email: decodedToken.payload.email || user?.email || null,
+                name: user?.name || null,
+                sub: decodedToken.payload.sub || 'N/A',
+                iss: decodedToken.payload.iss || 'N/A',
+                aud: decodedToken.payload.aud || 'N/A',
+                exp: decodedToken.payload.exp || 'N/A',
+                iat: decodedToken.payload.iat || 'N/A'
+              };
+            }
+          } catch (decodeError) {
+            addLog('Could not decode Apple token: ' + decodeError.message, 'error');
+            console.warn('⚠️ Could not decode Apple token:', decodeError);
+          }
+        }
+
+        // สร้าง tokens object ที่มี token ทั้งหมด
+        const tokens = {
+          idToken: idToken,
+          authorizationCode: authorizationCode,
+          user: user,
+          state: state,
+          decodedToken: decodedToken,
+          rawResponse: detail
+        };
+
+        // Log token ทั้งหมด
+        logAllTokens(tokens, 'apple');
+
+        // แสดงผลลัพธ์บนหน้าเว็บ
+        displayUserInfo(userInfoData, tokens, 'apple');
+        currentProvider = 'apple';
+
+        addLog('Apple Sign-In successful!', 'success');
+
+      } catch (error) {
+        addLog('Error during Apple Sign-In: ' + error.toString(), 'error');
+        console.error('❌ General Exception during Apple Sign-In:', error);
+        showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Apple: ' + error.toString());
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับแสดงข้อมูลผู้ใช้และ token บนหน้าเว็บ
+     * @param {Object} userInfoData - ข้อมูลผู้ใช้
+     * @param {Object} tokens - token ทั้งหมด
+     * @param {string} provider - provider name
+     */
+    function displayUserInfo(userInfoData, tokens, provider) {
+      // ซ่อน error
+      if (errorMessage) {
+        errorMessage.style.display = 'none';
+      }
+
+      // แสดงข้อมูลผู้ใช้
+      if (userInfo) {
+        userInfo.innerHTML = `
+          <h3>👤 ข้อมูลผู้ใช้ (${provider.toUpperCase()})</h3>
+          <p><strong>Email:</strong> ${userInfoData.email || 'N/A'}</p>
+          <p><strong>Name:</strong> ${userInfoData.name || 'N/A'}</p>
+          ${userInfoData.given_name ? `<p><strong>Given Name:</strong> ${userInfoData.given_name}</p>` : ''}
+          ${userInfoData.family_name ? `<p><strong>Family Name:</strong> ${userInfoData.family_name}</p>` : ''}
+          ${userInfoData.email_verified !== undefined ? `<p><strong>Email Verified:</strong> ${userInfoData.email_verified ? 'Yes' : 'No'}</p>` : ''}
+          <p><strong>Sub (User ID):</strong> ${userInfoData.sub || 'N/A'}</p>
+          ${userInfoData.picture ? `<p><strong>Picture:</strong> <a href="${userInfoData.picture}" target="_blank">${userInfoData.picture}</a></p>` : ''}
+        `;
+        userInfo.style.display = 'block';
+      }
+
+      // แสดง Token
+      if (tokenInfo) {
+        const tokenText = JSON.stringify(tokens, null, 2);
+        tokenInfo.innerHTML = `
+          <h3>🔑 Token Information (${provider.toUpperCase()})</h3>
+          <textarea readonly>${tokenText}</textarea>
+        `;
+        tokenInfo.style.display = 'block';
+      }
+
+      // ซ่อนปุ่ม login และแสดงปุ่ม logout
+      if (googleLoginBtn) googleLoginBtn.style.display = 'none';
+      if (appleLoginBtn) appleLoginBtn.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'block';
+    }
+
+    /**
+     * ฟังก์ชันสำหรับแสดง error message
+     * @param {string} message - ข้อความ error
+     */
+    function showError(message) {
+      if (errorMessage) {
+        errorMessage.textContent = `❌ ${message}`;
+        errorMessage.style.display = 'block';
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับ logout
+     */
+    function signOut() {
+      try {
+        // Clear ข้อมูลที่แสดง
+        if (userInfo) userInfo.style.display = 'none';
+        if (tokenInfo) tokenInfo.style.display = 'none';
+        if (errorMessage) errorMessage.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (googleLoginBtn) googleLoginBtn.style.display = 'block';
+        if (appleLoginBtn) appleLoginBtn.style.display = 'block';
+
+        // Clear tokens
+        allTokens = {};
+        currentProvider = null;
+
+        addLog('Logout สำเร็จ', 'success');
+        console.log('✅ Logout สำเร็จ');
+        
+      } catch (error) {
+        addLog('Error during logout: ' + error.toString(), 'error');
+        console.error('❌ เกิดข้อผิดพลาดในการ Logout:', error);
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับ initialize Google Sign-In
+     */
+    function initializeGoogleSignIn() {
+      if (typeof google !== 'undefined' && google.accounts) {
+        addLog('Initializing Google Sign-In...', 'info');
+        
+        // ตรวจสอบว่า client_id ถูกตั้งค่าหรือยัง
+        if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('407047949381-8r5beccl81cd50jfebhiha6m6svbtqb6.apps.googleusercontent.com')) {
+          addLog('Google OAuth Client ID ยังไม่ได้ตั้งค่า!', 'error');
+          showError('⚠️ ยังไม่ได้ตั้งค่า Google OAuth Client ID');
+          if (clientIdWarning) {
+            clientIdWarning.style.display = 'block';
+          }
+          if (googleLoginBtn) {
+            googleLoginBtn.disabled = true;
+          }
+          return;
+        }
+        
+        try {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleSignIn,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+
+          googleSignInInitialized = true;
+          addLog('Google Sign-In initialized successfully', 'success');
+          
+          if (clientIdWarning) {
+            clientIdWarning.style.display = 'none';
+          }
+          if (googleLoginBtn) {
+            googleLoginBtn.disabled = false;
+          }
+          
+        } catch (error) {
+          addLog('Error initializing Google Sign-In: ' + error.message, 'error');
+          showError('เกิดข้อผิดพลาดในการ initialize Google Sign-In: ' + error.message);
+        }
+      } else {
+        setTimeout(initializeGoogleSignIn, 500);
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับ initialize Apple Sign-In
+     */
+    function initializeAppleSignIn() {
+      if (typeof AppleID !== 'undefined') {
+        addLog('Initializing Apple Sign-In...', 'info');
+        
+        // ตรวจสอบว่า client_id ถูกตั้งค่าหรือยัง
+        if (!APPLE_CLIENT_ID || APPLE_CLIENT_ID.includes('YOUR_APPLE')) {
+          addLog('Apple Client ID ยังไม่ได้ตั้งค่า!', 'error');
+          if (clientIdWarning) {
+            clientIdWarning.style.display = 'block';
+          }
+          if (appleLoginBtn) {
+            appleLoginBtn.disabled = true;
+          }
+          return;
+        }
+        
+        try {
+          AppleID.auth.init({
+            clientId: APPLE_CLIENT_ID,
+            scope: 'name email',
+            redirectURI: APPLE_REDIRECT_URI,
+            usePopup: true
+          });
+
+          // ฟัง event จาก Apple Sign In
+          document.addEventListener('AppleIDSignInOnSuccess', handleAppleSignIn);
+          document.addEventListener('AppleIDSignInOnFailure', (event) => {
+            addLog('Apple Sign-In failed: ' + JSON.stringify(event), 'error');
+            showError('Apple Sign-In failed: ' + JSON.stringify(event));
+          });
+
+          addLog('Apple Sign-In initialized successfully', 'success');
+          
+          if (appleLoginBtn) {
+            appleLoginBtn.disabled = false;
+          }
+          
+        } catch (error) {
+          addLog('Error initializing Apple Sign-In: ' + error.message, 'error');
+          showError('เกิดข้อผิดพลาดในการ initialize Apple Sign-In: ' + error.message);
+        }
+      } else {
+        setTimeout(initializeAppleSignIn, 500);
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับ login ด้วย Google
+     */
+    async function signInWithGoogle() {
+      try {
+        addLog('Starting Google Login...', 'info');
+
+        if (typeof google === 'undefined' || !google.accounts) {
+          const error = 'Google Identity Services SDK ยังไม่โหลดเสร็จ';
+          addLog(error, 'error');
+          showError(error);
+          return;
+        }
+
+        if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('407047949381-8r5beccl81cd50jfebhiha6m6svbtqb6.apps.googleusercontent.com')) {
+          const error = 'ยังไม่ได้ตั้งค่า Google OAuth Client ID';
+          addLog(error, 'error');
+          showError('⚠️ ' + error);
+          return;
+        }
+
+        // ล้างข้อมูลเก่า
+        if (userInfo) userInfo.style.display = 'none';
+        if (tokenInfo) tokenInfo.style.display = 'none';
+        if (errorMessage) errorMessage.style.display = 'none';
+
+        // Initialize ถ้ายังไม่ได้ initialize
+        if (!googleSignInInitialized) {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleSignIn,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+          googleSignInInitialized = true;
+        }
+
+        // สร้าง container ชั่วคราวสำหรับ render button
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.position = 'absolute';
+        buttonContainer.style.left = '-9999px';
+        buttonContainer.style.top = '-9999px';
+        document.body.appendChild(buttonContainer);
+
+        // Render button
+        google.accounts.id.renderButton(buttonContainer, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: 'signin_with',
+          width: 300
+        });
+
+        // คลิก button
+        setTimeout(() => {
+          const button = buttonContainer.querySelector('div[role="button"]');
+          if (button) {
+            button.click();
+            setTimeout(() => {
+              if (buttonContainer.parentNode) {
+                buttonContainer.parentNode.removeChild(buttonContainer);
+              }
+            }, 100);
+          } else {
+            google.accounts.id.prompt((notification) => {
+              if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                const error = 'ไม่สามารถแสดง Google Sign-In ได้';
+                addLog(error, 'error');
+                showError(error);
+                if (buttonContainer.parentNode) {
+                  buttonContainer.parentNode.removeChild(buttonContainer);
+                }
+              }
+            });
+          }
+        }, 100);
+
+      } catch (error) {
+        addLog('Error during Google Sign-In: ' + error.toString(), 'error');
+        showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google: ' + error.toString());
+      }
+    }
+
+    /**
+     * ฟังก์ชันสำหรับ login ด้วย Apple
+     */
+    async function signInWithApple() {
+      try {
+        addLog('Starting Apple Login...', 'info');
+
+        if (typeof AppleID === 'undefined') {
+          const error = 'Apple Sign In SDK ยังไม่โหลดเสร็จ';
+          addLog(error, 'error');
+          showError(error);
+          return;
+        }
+
+        if (!APPLE_CLIENT_ID || APPLE_CLIENT_ID.includes('YOUR_APPLE')) {
+          const error = 'ยังไม่ได้ตั้งค่า Apple Client ID';
+          addLog(error, 'error');
+          showError('⚠️ ' + error + '\n\nกรุณาแก้ไขโค้ดที่บรรทัด: const APPLE_CLIENT_ID = "...";');
+          return;
+        }
+
+        // ล้างข้อมูลเก่า
+        if (userInfo) userInfo.style.display = 'none';
+        if (tokenInfo) tokenInfo.style.display = 'none';
+        if (errorMessage) errorMessage.style.display = 'none';
+
+        // เรียกใช้ Apple Sign In
+        AppleID.auth.signIn({
+          requestedScopes: ['name', 'email']
+        });
+
+      } catch (error) {
+        addLog('Error during Apple Sign-In: ' + error.toString(), 'error');
+        showError('เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Apple: ' + error.toString());
+      }
+    }
+
+    // เรียกใช้เมื่อหน้าเว็บโหลดเสร็จ
+    window.addEventListener('load', () => {
+      addLog('Page loaded, initializing...', 'info');
+      setTimeout(() => {
+        initializeGoogleSignIn();
+        initializeAppleSignIn();
+      }, 1000);
+    });
+
+    // Export functions
+    window.signInWithGoogle = signInWithGoogle;
+    window.signInWithApple = signInWithApple;
+    window.signOut = signOut;
+  </script>
+</body>
+</html>
+
+
+

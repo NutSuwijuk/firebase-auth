@@ -856,6 +856,15 @@
           <button id="logoutBtn" class="button secondary">🚪 Sign Out</button>
         </div>
 
+        <!-- LINE Custom Claims Management -->
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+          <h4 style="text-align: center; margin-bottom: 15px;">🔗 LINE Custom Claims Management</h4>
+          <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="updateLineClaimsBtn" class="button line">🔄 Update LINE Claims</button>
+            <button id="unlinkLineBtn" class="button" style="background: #dc3545; color: white;">🗑️ Unlink LINE Account</button>
+          </div>
+        </div>
+
         <!-- Linked Providers Management Section -->
         <div id="linkedProvidersSection" style="margin-top: 30px; display: none;">
           <h3>🔗 จัดการ Linked Providers</h3>
@@ -906,7 +915,16 @@
                 alt="LINE"
                 class="provider-icon"
               />
-              🟩 เชื่อมต่อ LINE
+              🟩 เชื่อมต่อ LINE (Popup)
+            </button>
+
+            <button id="realLineLinkCredentialBtn" class="button line" style="margin: 10px; width: calc(100% - 20px); background: linear-gradient(135deg, #00B900 0%, #00A000 100%); border: 2px solid #00B900;">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo="
+                alt="LINE"
+                class="provider-icon"
+              />
+              🔗 เชื่อมต่อ LINE (Credential)
             </button>
           </div>
 
@@ -1077,6 +1095,7 @@
          onAuthStateChanged,
          signOut,
          linkWithPopup,
+         linkWithCredential,
          unlink
        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -1611,13 +1630,34 @@
         });
       }
 
-      // Check for LINE callback - Handle both regular and simple LINE login
+      // Check for LINE callback - Handle both regular and simple LINE login, and linking
       const urlParams = new URLSearchParams(window.location.search);
       const lineCode = urlParams.get("code");
       const lineState = urlParams.get("state");
       const lineError = urlParams.get("error");
+      
+      // ตรวจสอบว่าเป็น linking operation หรือไม่
+      const isLinkingMode = localStorage.getItem('lineLinkMode') === 'true';
 
-      if (lineCode && lineState) {
+      if (isLinkingMode && lineCode && lineState) {
+        // Process LINE linking callback
+        console.log('🔗 Processing LINE linking callback...');
+        localStorage.removeItem('lineLinkMode');
+        localStorage.removeItem('lineLinkState');
+        localStorage.removeItem('lineLinkTimestamp');
+        
+        // เรียก function เพื่อ process credential และ link
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('code');
+        newUrl.searchParams.delete('state');
+        newUrl.searchParams.set('line_link_code', lineCode);
+        window.history.replaceState({}, document.title, newUrl.pathname + newUrl.search);
+        
+        // รอให้ auth state settle ก่อน
+        setTimeout(() => {
+          realLineProviderLinkWithCredential();
+        }, 500);
+      } else if (lineCode && lineState) {
         // Process LINE callback - Try both endpoints
         console.log("LINE callback detected, processing...");
 
@@ -2045,7 +2085,19 @@
       async function fetchUserRecordFromFirebase(firebaseUid) {
         try {
           // ใช้ LOCAL_SERVICE_URL ที่กำหนดไว้แล้วในไฟล์
-          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/user-record/${firebaseUid}`);
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/user-record/${firebaseUid}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          // ตรวจสอบว่า response สำเร็จหรือไม่
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+          }
+          
           const data = await response.json();
           
           if (data.success && data.userRecord) {
@@ -2055,6 +2107,7 @@
           }
         } catch (error) {
           console.error('❌ Error fetching user record from Firebase:', error);
+          console.error('URL:', `${LOCAL_SERVICE_URL}/api/auth/user-record/${firebaseUid}`);
           throw error;
         }
       }
@@ -2066,25 +2119,16 @@
        * @returns {Object} User record ในรูปแบบที่ต้องการ
        */
       function formatUserRecord(adminUserRecord, clientUser) {
-        // กำหนด providerId เป็น 'firebase' (default)
-        let providerId = 'firebase';
-        let rawId = clientUser?.uid || adminUserRecord?.uid || '';
-        
-        // หา primary provider (provider แรก) เพื่อหา rawId
-        const providerData = adminUserRecord?.providerData || clientUser?.providerData || [];
-        if (providerData.length > 0) {
-          const primaryProvider = providerData[0];
-          // providerId ใช้ 'firebase' เป็น default
-          // rawId จะเป็น uid ของ provider หลัก (เช่น LINE user ID, Google user ID)
-          rawId = primaryProvider.uid || rawId;
-        }
-        
-        // ถ้ามี CustomClaims ที่ระบุ providerId ให้ใช้ค่าเหล่านั้น
+        // ดึง CustomClaims จาก Firebase
         const customClaims = adminUserRecord?.customClaims || {};
-        if (customClaims.providerId) {
-          // ใช้ providerId จาก customClaims ถ้ามี
-          // แต่ rawId ยังคงมาจาก provider.uid
-        }
+        
+        // กำหนด providerId และ rawId ที่ระดับบน (ไม่ใช้จาก CustomClaims)
+        // providerId ใช้ 'firebase' เสมอ และ rawId ใช้ Firebase UID เสมอ
+        const providerId = 'firebase';
+        const rawId = clientUser?.uid || adminUserRecord?.uid || '';
+        
+        // ดึง providerData เพื่อใช้ในการสร้าง ProviderUserInfo
+        const providerData = adminUserRecord?.providerData || clientUser?.providerData || [];
         
         // สร้าง ProviderUserInfo array
         const providerUserInfo = providerData.map(provider => ({
@@ -2095,6 +2139,20 @@
           rawId: provider.uid || null
         })).filter(provider => provider.providerId !== null);
         
+        // สร้าง CustomClaims object โดยแสดงค่าทั้งหมดจาก CustomClaims ใน Firebase โดยตรง
+        let formattedCustomClaims = null;
+        
+        if (customClaims && Object.keys(customClaims).length > 0) {
+          // คัดลอก CustomClaims ทั้งหมดจาก Firebase โดยตรง (ไม่เติมจากที่อื่น)
+          formattedCustomClaims = { ...customClaims };
+          
+          // แปลง photoUrl เป็น photoURL ถ้ามี (เพื่อให้สอดคล้องกับรูปแบบที่ต้องการ)
+          if (formattedCustomClaims.photoUrl && !formattedCustomClaims.photoURL) {
+            formattedCustomClaims.photoURL = formattedCustomClaims.photoUrl;
+            delete formattedCustomClaims.photoUrl;
+          }
+        }
+        
         // สร้าง user record object ในรูปแบบที่ต้องการ
         const formattedRecord = {
           displayName: adminUserRecord?.displayName || clientUser?.displayName || null,
@@ -2102,16 +2160,24 @@
           photoUrl: adminUserRecord?.photoURL || adminUserRecord?.photoUrl || clientUser?.photoURL || null,
           providerId: providerId,
           rawId: rawId,
-          CustomClaims: adminUserRecord?.customClaims || customClaims || {},
           Disabled: adminUserRecord?.disabled !== undefined ? adminUserRecord.disabled : false,
           EmailVerified: adminUserRecord?.emailVerified !== undefined ? adminUserRecord.emailVerified : 
                          (clientUser?.emailVerified !== undefined ? clientUser.emailVerified : false),
           ProviderUserInfo: providerUserInfo
         };
         
-        // ถ้า CustomClaims ว่างเปล่าให้ลบออก
-        if (formattedRecord.CustomClaims && Object.keys(formattedRecord.CustomClaims).length === 0) {
-          delete formattedRecord.CustomClaims;
+        // ลบค่าที่เป็น null ใน CustomClaims และเพิ่ม CustomClaims ถ้ามีข้อมูล
+        if (formattedCustomClaims) {
+          Object.keys(formattedCustomClaims).forEach(key => {
+            if (formattedCustomClaims[key] === null || formattedCustomClaims[key] === undefined) {
+              delete formattedCustomClaims[key];
+            }
+          });
+          
+          // เพิ่ม CustomClaims ถ้ายังมีข้อมูลอยู่
+          if (Object.keys(formattedCustomClaims).length > 0) {
+            formattedRecord.CustomClaims = formattedCustomClaims;
+          }
         }
         
         // ถ้า ProviderUserInfo ว่างเปล่าให้ลบออก
@@ -2496,11 +2562,31 @@
 
 
       // Auth state listener for Firebase
-      auth.onAuthStateChanged((user) => {
+      auth.onAuthStateChanged(async (user) => {
         console.log(
           "Firebase Auth State Changed:",
-          user ? "User logged in" : "No user"
+          user ? `User logged in (UID: ${user.uid})` : "No user"
         );
+        
+        if (user) {
+          // Check for post-login actions after user is confirmed
+          const postLoginAction = localStorage.getItem('postLineLoginAction');
+          if (postLoginAction === 'updateClaims') {
+            localStorage.removeItem('postLineLoginAction'); // Clear the flag immediately
+            
+            const lineAccessToken = localStorage.getItem("lineAccessToken");
+            if (lineAccessToken) {
+              console.log('🚀 Triggering post-login action: updateLineClaims');
+              // Use a small delay to ensure the UI is settled before alert/reload
+              setTimeout(async () => {
+                await callUpdateLineClaimsApi(user.uid, lineAccessToken);
+              }, 500);
+            } else {
+              console.warn('⚠️ Post-login action "updateClaims" was set, but no LINE access token found.');
+            }
+          }
+        }
+        
         checkUserStatus();
       });
 
@@ -3006,7 +3092,7 @@
       
       /**
        * Real LINE Provider Link
-       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication
+       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication (ใช้ popup)
        */
       async function realLineProviderLink() {
         try {
@@ -3078,6 +3164,150 @@
           }
         }
       }
+      
+      /**
+       * Real LINE Provider Link with Credential
+       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication (ใช้ credential)
+       */
+      async function realLineProviderLinkWithCredential() {
+        try {
+          console.log('🔗 Real LINE Provider Link with Credential started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ตรวจสอบว่า LINE provider เชื่อมต่อแล้วหรือยัง
+          const existingProviders = currentUser.providerData || [];
+          const isLineLinked = existingProviders.some(p => p.providerId === 'oidc.line');
+          if (isLineLinked) {
+            alert('LINE provider เชื่อมต่อแล้ว กรุณา unlink ก่อนเชื่อมต่อใหม่');
+            return;
+          }
+          
+          // ตรวจสอบ URL parameters สำหรับ callback จาก LINE
+          const urlParams = new URLSearchParams(window.location.search);
+          const lineCode = urlParams.get('line_link_code');
+          const linkError = urlParams.get('line_link_error');
+          
+          if (linkError) {
+            // มี error จาก LINE callback
+            alert(`การเชื่อมต่อ LINE ล้มเหลว: ${linkError}`);
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+          }
+          
+          if (lineCode) {
+            // Step 3: Exchange code for LINE credential
+            console.log('🔄 Exchanging code for LINE credential...');
+            const credentialResponse = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/credential-for-link`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                code: lineCode
+              })
+            });
+            
+            const credentialData = await credentialResponse.json();
+            
+            if (!credentialData.success) {
+              throw new Error(credentialData.error || 'Failed to get LINE credential');
+            }
+            
+            // Step 4: สร้าง Firebase credential จาก LINE ID token
+            console.log('🔑 Creating Firebase credential from LINE ID token...');
+            const lineProvider = new OAuthProvider('oidc.line');
+            const credential = lineProvider.credential(credentialData.id_token);
+            
+            // Step 5: Link credential to current user
+            console.log('🔗 Linking LINE credential to current user...');
+            const result = await linkWithCredential(currentUser, credential);
+            
+            console.log('✅ LINE provider linked successfully with credential:', result);
+            
+            // ตรวจสอบ email ซ้ำกันหลัง link
+            const newEmail = result.user.email;
+            if (checkDuplicateEmail(newEmail, existingProviders)) {
+              console.log('⚠️ Duplicate email detected, but link was successful');
+              alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+            } else {
+              console.log('✅ New email linked successfully:', newEmail);
+            }
+            
+            // แสดงผลลัพธ์
+            showRealProviderResult({
+              providerId: 'oidc.line',
+              providerName: 'LINE',
+              providerIcon: '🟩',
+              email: result.user.email,
+              displayName: result.user.displayName,
+              photoURL: result.user.photoURL,
+              uid: result.user.uid,
+              linkedAt: new Date().toISOString(),
+              isReal: true
+            });
+            
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // แสดงข้อความสำเร็จ
+            alert('✅ เชื่อมต่อ LINE สำเร็จ! (ใช้ credential)');
+            
+            // อัปเดตปุ่ม provider
+            updateProviderButtons(result.user.providerData);
+            
+            // อัปเดต UI
+            window.location.reload();
+            
+            return;
+          }
+          
+          // Step 1: รับ LINE authorization URL สำหรับ linking
+          console.log('📥 Getting LINE authorization URL for linking...');
+          const authUrlResponse = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/auth-url`);
+          const authUrlData = await authUrlResponse.json();
+          
+          if (!authUrlData.success) {
+            throw new Error(authUrlData.error || 'Failed to get LINE authorization URL');
+          }
+          
+          // เก็บ state และ flag สำหรับ linking
+          if (authUrlData.state) {
+            localStorage.setItem('lineLinkState', authUrlData.state);
+            localStorage.setItem('lineLinkTimestamp', Date.now().toString());
+            localStorage.setItem('lineLinkMode', 'true'); // Flag ว่าเป็น linking operation
+          }
+          
+          console.log('🔐 Redirecting to LINE login page...');
+          window.location.href = authUrlData.authUrl;
+          
+        } catch (error) {
+          console.error('❌ Real LINE Provider link with credential error:', error);
+          
+          // Clear URL parameters on error
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('LINE account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('LINE account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.message && error.message.includes('closed')) {
+            alert('การเชื่อมต่อ LINE ถูกยกเลิกโดยผู้ใช้');
+          } else if (error.code === 'auth/operation-not-allowed') {
+            alert('LINE Login ไม่ได้เปิดใช้งานใน Firebase Console');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ LINE: ${error.message}`);
+          }
+        }
+      }
+      
       
       /**
        * แสดงผลลัพธ์การเชื่อมต่อ Provider จริง
@@ -3507,12 +3737,134 @@
         });
       }
       
-      // Real LINE Provider Link Button
+      // Real LINE Provider Link Button (Popup)
       const realLineLinkBtn = document.getElementById('realLineLinkBtn');
       if (realLineLinkBtn) {
         realLineLinkBtn.addEventListener('click', async () => {
           await realLineProviderLink();
         });
+      }
+      
+      // Real LINE Provider Link Button (Credential)
+      const realLineLinkCredentialBtn = document.getElementById('realLineLinkCredentialBtn');
+      if (realLineLinkCredentialBtn) {
+        realLineLinkCredentialBtn.addEventListener('click', async () => {
+          await realLineProviderLinkWithCredential();
+        });
+      }
+
+      // --- New Functions for LINE Custom Claims ---
+
+      // Helper function to call the update claims API
+      async function callUpdateLineClaimsApi(uid, token) {
+        try {
+          console.log(`🔄 Calling API to update LINE claims for UID: ${uid}`);
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/update-claims`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: uid,
+              lineAccessToken: token
+            })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            console.log('✅ LINE claims updated successfully:', data.updatedClaims);
+            alert('✅ LINE custom claims have been successfully updated!\nPage will now reload to reflect changes.');
+            window.location.reload();
+          } else {
+            throw new Error(data.error || 'Failed to update claims');
+          }
+        } catch (error) {
+          console.error('❌ Error in callUpdateLineClaimsApi:', error);
+          alert(`Error updating claims: ${error.message}`);
+        }
+      }
+
+      // Function to update LINE Custom Claims (initiates login if needed)
+      async function updateLineClaims() {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('❌ Please log in to a Firebase account first.');
+            return;
+          }
+
+          const lineAccessToken = localStorage.getItem("lineAccessToken");
+          if (lineAccessToken) {
+            // If token exists, just update the claims
+            console.log('✅ Found existing LINE token. Updating claims directly.');
+            await callUpdateLineClaimsApi(currentUser.uid, lineAccessToken);
+          } else {
+            // If no token, initiate LINE login flow
+            console.log('🚀 No LINE token found. Initiating LINE login for claims update...');
+            localStorage.setItem('postLineLoginAction', 'updateClaims');
+            
+            // This logic is similar to the main LINE login button
+            const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/auth-url`);
+            const authData = await response.json();
+
+            if (authData.success) {
+              console.log('🔐 Redirecting to LINE for authentication...');
+              window.location.href = authData.authUrl;
+            } else {
+              throw new Error(authData.error || 'Failed to get LINE authorization URL');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error in updateLineClaims flow:', error);
+          alert(`Error: ${error.message}`);
+          localStorage.removeItem('postLineLoginAction'); // Clean up on failure
+        }
+      }
+
+      // Function to unlink LINE account (clear claims)
+      async function unlinkLineAccount() {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('❌ Please log in to a Firebase account first.');
+            return;
+          }
+
+          if (!confirm('❓ Are you sure you want to unlink your LINE data?\nThis will remove LINE-specific custom claims from your Firebase account.')) {
+            return;
+          }
+
+          console.log(`🗑️ Calling API to unlink LINE account for UID: ${currentUser.uid}`);
+
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/unlink`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: currentUser.uid })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            console.log('✅ LINE account unlinked successfully.');
+            alert('✅ LINE account data has been unlinked successfully!\nPage will now reload.');
+            window.location.reload();
+          } else {
+            throw new Error(data.error || 'Failed to unlink account');
+          }
+        } catch (error) {
+          console.error('❌ Error unlinking LINE account:', error);
+          alert(`Error: ${error.message}`);
+        }
+      }
+
+      // Event Listeners for new buttons
+      const updateLineClaimsBtn = document.getElementById('updateLineClaimsBtn');
+      if (updateLineClaimsBtn) {
+        updateLineClaimsBtn.addEventListener('click', updateLineClaims);
+      }
+
+      const unlinkLineBtn = document.getElementById('unlinkLineBtn');
+      if (unlinkLineBtn) {
+        unlinkLineBtn.addEventListener('click', unlinkLineAccount);
       }
 
     </script>

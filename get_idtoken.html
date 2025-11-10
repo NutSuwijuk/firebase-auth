@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sign-In - Get ID Token</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #357ae8;
+        }
+        #appleButton {
+            background-color: #000;
+        }
+        #appleButton:hover {
+            background-color: #333;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border-left: 4px solid #4285f4;
+            word-break: break-all;
+        }
+        .result h3 {
+            margin-top: 0;
+            color: #4285f4;
+        }
+        .token-display {
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .copy-btn {
+            background-color: #34a853;
+            margin-top: 10px;
+        }
+        .copy-btn:hover {
+            background-color: #2d8f47;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Google & Apple Sign-In - Get ID Token</h1>
+        <p>กดปุ่มด้านล่างเพื่อ login และดู id_token</p>
+        
+        <!-- Instructions -->
+        <div style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #2196F3;">
+            <strong>📋 วิธีตั้งค่า:</strong>
+            <ol style="margin: 10px 0; padding-left: 20px;">
+                <li>เปิดไฟล์ HTML นี้ใน text editor</li>
+                <li>หา <code>GOOGLE_CLIENT_ID</code> และแก้ไขเป็น Client ID จาก Firebase Console</li>
+                <li>หาได้จาก: <strong>Firebase Console > Project Settings > General > Your apps > Web app</strong></li>
+                <li><strong>⚠️ สำคัญ:</strong> ต้องเพิ่ม Authorized JavaScript origins ใน Firebase Console (ดูด้านล่าง)</li>
+            </ol>
+        </div>
+        
+        <!-- Origin Mismatch Warning -->
+        <div id="originWarning" style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #ffc107; display: none;">
+            <strong>⚠️ แก้ไข Error: origin_mismatch</strong>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">
+                <strong>Current Origin:</strong> <code id="currentOrigin"></code><br>
+                <strong>วิธีแก้:</strong> ไปที่ Firebase Console > Authentication > Settings > Authorized domains<br>
+                หรือ Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs<br>
+                แล้วเพิ่ม origin นี้: <code id="originToAdd"></code>
+            </p>
+        </div>
+        
+        <!-- Google Sign-In Button -->
+        <div id="googleSignInButton"></div>
+        
+        <!-- Apple Sign-In Button -->
+        <button id="appleButton" onclick="signInWithApple()">
+            🍎 Sign in with Apple
+        </button>
+        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+            <small>หมายเหตุ: Apple Sign-In ต้องใช้ HTTPS หรือ localhost เท่านั้น</small>
+        </p>
+        
+        <!-- Apple Redirect URI Warning -->
+        <div id="appleRedirectWarning" style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 10px; border-left: 4px solid #ffc107; display: none;">
+            <strong>⚠️ วิธีตั้งค่า Apple Sign-In Return URLs:</strong>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">
+                <strong>Current Redirect URI:</strong> <code id="currentRedirectURI"></code><br>
+                <strong>วิธีแก้:</strong><br>
+                1. ไปที่ <a href="https://developer.apple.com/account/resources/identifiers/list/serviceId" target="_blank">Apple Developer Portal > Service IDs</a><br>
+                2. เลือก Service ID: <code>th.co.mfec.appsol.firebasetest</code><br>
+                3. เปิดใช้งาน "Sign in with Apple" และกด Configure<br>
+                4. ในส่วน "Website URLs" > "Return URLs" ให้เพิ่ม URL นี้:<br>
+                <code id="redirectURIToAdd"></code><br>
+                5. ในส่วน "Domains and Subdomains" ให้เพิ่ม domain:<br>
+                <code id="domainToAdd"></code><br>
+                6. Save และรอสักครู่ (อาจใช้เวลาสัก 2-3 นาที)
+            </p>
+        </div>
+        
+        <!-- Result Display -->
+        <div id="result" class="result" style="display: none;">
+            <h3>✅ ID Token:</h3>
+            <div id="tokenDisplay" class="token-display"></div>
+            <button class="copy-btn" onclick="copyToken()">📋 Copy Token</button>
+            <div style="margin-top: 15px;">
+                <h3>📝 Provider Info:</h3>
+                <div id="providerInfo"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Sign-In Script -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Apple Sign-In Script -->
+    <script type="text/javascript" src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
+    
+    <script>
+        // Google Client ID - ต้องเปลี่ยนเป็น Client ID ของคุณจาก Firebase Console
+        // หาได้จาก: Firebase Console > Project Settings > General > Your apps > Web app
+        // ตัวอย่าง: '123456789-abcdefghijklmnop.apps.googleusercontent.com'
+        const GOOGLE_CLIENT_ID = '266274251473-e88r4lf2g36gfigqdn31tm0rdij6pi1p.apps.googleusercontent.com';
+        
+        // Apple Service ID - ต้องเปลี่ยนเป็น Service ID ของคุณ (ถ้าต้องการใช้ Apple Sign-In)
+        // หาได้จาก: Apple Developer Portal > Certificates, Identifiers & Profiles > Identifiers > Services IDs
+        // วิธีสร้าง:
+        // 1. ไปที่ https://developer.apple.com/account/resources/identifiers/list/serviceId
+        // 2. กด + เพื่อสร้าง Service ID ใหม่
+        // 3. ตั้งชื่อและ Identifier (เช่น 'th.co.mfec.appsol.firebasetest')
+        // 4. เปิดใช้งาน "Sign in with Apple" และตั้งค่า Website URLs
+        // 5. ตั้งค่า Return URLs: เพิ่ม origin ของคุณ (เช่น 'https://yourdomain.com' หรือ 'http://localhost:8080')
+        // 6. ตั้งค่า Domains: เพิ่ม domain ของคุณ (เช่น 'localhost' หรือ 'yourdomain.com')
+        // ตัวอย่าง: 'th.co.mfec.appsol.firebasetest'
+        const APPLE_SERVICE_ID = 'th.co.mfec.appsol.firebasetest';
+        
+        // ตรวจสอบว่า Google Client ID ถูกตั้งค่าหรือยัง
+        function checkGoogleClientID() {
+            // ตรวจสอบว่าไม่ใช่ placeholder หรือค่าว่าง และมีรูปแบบที่ถูกต้อง
+            if (GOOGLE_CLIENT_ID === '' || 
+                GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com' ||
+                !GOOGLE_CLIENT_ID.includes('.apps.googleusercontent.com')) {
+                return false;
+            }
+            return true;
+        }
+        
+        // แสดงข้อมูล Origin สำหรับแก้ไข origin_mismatch
+        function showOriginInfo() {
+            const currentOrigin = window.location.origin;
+            const originWarning = document.getElementById('originWarning');
+            const currentOriginSpan = document.getElementById('currentOrigin');
+            const originToAddSpan = document.getElementById('originToAdd');
+            
+            if (currentOriginSpan) {
+                currentOriginSpan.textContent = currentOrigin;
+            }
+            if (originToAddSpan) {
+                originToAddSpan.textContent = currentOrigin;
+            }
+            if (originWarning) {
+                originWarning.style.display = 'block';
+            }
+            
+            // แสดงข้อมูล Apple Redirect URI
+            const appleRedirectWarning = document.getElementById('appleRedirectWarning');
+            const currentRedirectURISpan = document.getElementById('currentRedirectURI');
+            const redirectURIToAddSpan = document.getElementById('redirectURIToAdd');
+            const domainToAddSpan = document.getElementById('domainToAdd');
+            
+            const redirectURI = window.location.origin + window.location.pathname;
+            const domain = window.location.hostname;
+            
+            if (currentRedirectURISpan) {
+                currentRedirectURISpan.textContent = redirectURI;
+            }
+            if (redirectURIToAddSpan) {
+                redirectURIToAddSpan.textContent = redirectURI;
+            }
+            if (domainToAddSpan) {
+                domainToAddSpan.textContent = domain;
+            }
+            if (appleRedirectWarning) {
+                appleRedirectWarning.style.display = 'block';
+            }
+        }
+        
+        // เริ่มต้น Google Sign-In
+        window.onload = function() {
+            // แสดงข้อมูล Origin
+            showOriginInfo();
+            
+            // ตรวจสอบ Google Client ID
+            if (!checkGoogleClientID()) {
+                const buttonContainer = document.getElementById("googleSignInButton");
+                buttonContainer.innerHTML = `
+                    <div style="padding: 15px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; color: #856404;">
+                        <strong>⚠️ ยังไม่ได้ตั้งค่า Google Client ID</strong><br>
+                        <small>กรุณาแก้ไข GOOGLE_CLIENT_ID ในไฟล์ HTML<br>
+                        หาได้จาก: Firebase Console > Project Settings > General > Your apps > Web app</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            // รอให้ Google SDK โหลดเสร็จ
+            function initGoogleSignIn() {
+                if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                    try {
+                        google.accounts.id.initialize({
+                            client_id: GOOGLE_CLIENT_ID,
+                            callback: handleGoogleSignIn,
+                            auto_select: false,
+                            cancel_on_tap_outside: true
+                        });
+                        
+                        google.accounts.id.renderButton(
+                            document.getElementById("googleSignInButton"),
+                            { 
+                                theme: "outline", 
+                                size: "large",
+                                width: 300,
+                                text: "signin_with"
+                            }
+                        );
+                    } catch (error) {
+                        console.error('Google Sign-In initialization error:', error);
+                        const buttonContainer = document.getElementById("googleSignInButton");
+                        const errorMessage = error.message || error;
+                        const isOriginMismatch = errorMessage.includes('origin_mismatch') || 
+                                                 errorMessage.includes('origin') ||
+                                                 errorMessage.includes('400');
+                        
+                        if (isOriginMismatch) {
+                            buttonContainer.innerHTML = `
+                                <div style="padding: 15px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; color: #856404;">
+                                    <strong>⚠️ Error: origin_mismatch</strong><br>
+                                    <small>ต้องเพิ่ม Authorized JavaScript origin ใน Firebase Console</small><br>
+                                    <strong>Current Origin:</strong> <code>${window.location.origin}</code><br>
+                                    <small style="margin-top: 10px; display: block;">
+                                        <strong>วิธีแก้:</strong><br>
+                                        1. ไปที่ Firebase Console > Authentication > Settings > Authorized domains<br>
+                                        2. หรือ Google Cloud Console > APIs & Services > Credentials<br>
+                                        3. เลือก OAuth 2.0 Client ID ของคุณ<br>
+                                        4. เพิ่ม Authorized JavaScript origins: <code>${window.location.origin}</code>
+                                    </small>
+                                </div>
+                            `;
+                        } else {
+                            buttonContainer.innerHTML = `
+                                <div style="padding: 15px; background-color: #f8d7da; border: 1px solid #dc3545; border-radius: 5px; color: #721c24;">
+                                    <strong>❌ Error: ${errorMessage}</strong><br>
+                                    <small>ตรวจสอบ Google Client ID ให้ถูกต้อง</small>
+                                </div>
+                            `;
+                        }
+                    }
+                } else {
+                    // รออีกสักครู่ถ้ายังโหลดไม่เสร็จ
+                    setTimeout(initGoogleSignIn, 100);
+                }
+            }
+            
+            initGoogleSignIn();
+        };
+
+        // จัดการ Google Sign-In Response
+        function handleGoogleSignIn(response) {
+            console.log('Google Sign-In Response:', response);
+            
+            // id_token มาจาก response.credential
+            const idToken = response.credential;
+            
+            // Log id_token ออกมา
+            console.log('=== GOOGLE ID TOKEN ===');
+            console.log(idToken);
+            console.log('======================');
+            
+            // แสดงผลบนหน้าเว็บ
+            displayToken(idToken, 'google.com');
+        }
+
+        // จัดการ Apple Sign-In
+        function signInWithApple() {
+            // Debug: แสดงค่า APPLE_SERVICE_ID ที่ใช้อยู่
+            console.log('APPLE_SERVICE_ID:', APPLE_SERVICE_ID);
+            
+            // ตรวจสอบว่า Apple Service ID ถูกตั้งค่าหรือยัง
+            // ตรวจสอบเฉพาะค่าว่างเท่านั้น (ถ้ามีค่าแล้วให้ผ่านไป)
+            if (!APPLE_SERVICE_ID || APPLE_SERVICE_ID.trim() === '') {
+                alert('⚠️ ยังไม่ได้ตั้งค่า Apple Service ID\nกรุณาแก้ไข APPLE_SERVICE_ID ในไฟล์ HTML');
+                return;
+            }
+            
+            // ตรวจสอบว่า browser รองรับ Apple Sign-In หรือไม่
+            if (typeof AppleID === 'undefined') {
+                alert('❌ Browser นี้ไม่รองรับ Apple Sign-In หรือยังไม่ได้โหลด Apple SDK\n\nหมายเหตุ: Apple Sign-In ต้องใช้ HTTPS หรือ localhost เท่านั้น');
+                return;
+            }
+            
+            try {
+                // ตรวจสอบว่าเป็น HTTPS หรือ localhost หรือไม่
+                if (window.location.protocol !== 'https:' && 
+                    window.location.hostname !== 'localhost' && 
+                    window.location.hostname !== '127.0.0.1') {
+                    alert('⚠️ Apple Sign-In ต้องใช้ HTTPS หรือ localhost เท่านั้น\n\nกรุณาเปิดไฟล์ผ่าน HTTPS หรือ localhost');
+                    return;
+                }
+                
+                // เริ่มต้น Apple Sign-In
+                // ตั้งค่า redirectURI ให้ตรงกับที่ตั้งค่าไว้ใน Apple Developer Portal
+                // ต้องตรงกับ Return URLs ที่ตั้งค่าไว้ใน Service ID configuration
+                const redirectURI = window.location.origin + window.location.pathname;
+                console.log('Apple Sign-In redirectURI:', redirectURI);
+                console.log('Current URL:', window.location.href);
+                console.log('Current Origin:', window.location.origin);
+                
+                AppleID.auth.init({
+                    clientId: APPLE_SERVICE_ID,
+                    scope: 'name email',
+                    redirectURI: redirectURI,
+                    usePopup: true
+                });
+
+                AppleID.auth.signIn({
+                    requestedScopes: ['name', 'email']
+                }).then((response) => {
+                    console.log('Apple Sign-In Response:', response);
+                    
+                    // id_token มาจาก response.id_token หรือ response.authorization.id_token
+                    const idToken = response.id_token || (response.authorization && response.authorization.id_token);
+                    
+                    if (!idToken) {
+                        console.error('Apple Sign-In Response:', response);
+                        alert('❌ ไม่พบ id_token ใน response\nดู Console สำหรับรายละเอียด');
+                        return;
+                    }
+                    
+                    // Log id_token ออกมา
+                    console.log('=== APPLE ID TOKEN ===');
+                    console.log(idToken);
+                    console.log('======================');
+                    
+                    // แสดงผลบนหน้าเว็บ
+                    displayToken(idToken, 'apple.com');
+                }).catch((error) => {
+                    console.error('Apple Sign-In Error:', error);
+                    const errorMessage = error.message || error.toString();
+                    
+                    // ตรวจสอบว่าเป็น redirect URI error หรือไม่
+                    if (errorMessage.includes('invalid_request') || 
+                        errorMessage.includes('redirect') || 
+                        errorMessage.includes('Invalid web redirect url')) {
+                        alert('❌ Error: Invalid redirect URL\n\n' +
+                              'กรุณาตรวจสอบว่าได้ตั้งค่า Return URLs ใน Apple Developer Portal แล้ว\n\n' +
+                              'Return URL ที่ต้องตั้งค่า:\n' + redirectURI + '\n\n' +
+                              'ดูคำแนะนำในหน้าเว็บด้านบน');
+                    } else {
+                        alert('❌ เกิดข้อผิดพลาดในการ login ด้วย Apple:\n' + errorMessage);
+                    }
+                });
+            } catch (error) {
+                console.error('Apple Sign-In initialization error:', error);
+                alert('❌ เกิดข้อผิดพลาดในการเริ่มต้น Apple Sign-In:\n' + error.message);
+            }
+        }
+
+        // แสดง Token บนหน้าเว็บ
+        function displayToken(token, providerId) {
+            const resultDiv = document.getElementById('result');
+            const tokenDisplay = document.getElementById('tokenDisplay');
+            const providerInfo = document.getElementById('providerInfo');
+            
+            tokenDisplay.textContent = token;
+            providerInfo.innerHTML = `
+                <p><strong>Provider:</strong> ${providerId}</p>
+                <p><strong>Token Length:</strong> ${token.length} characters</p>
+                <p><strong>Token Preview:</strong> ${token.substring(0, 50)}...</p>
+            `;
+            
+            resultDiv.style.display = 'block';
+            
+            // Scroll to result
+            resultDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Copy Token to Clipboard
+        function copyToken() {
+            const tokenDisplay = document.getElementById('tokenDisplay');
+            const token = tokenDisplay.textContent;
+            
+            navigator.clipboard.writeText(token).then(() => {
+                alert('✅ คัดลอก Token เรียบร้อยแล้ว!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                // Fallback: Select text
+                const range = document.createRange();
+                range.selectNode(tokenDisplay);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                document.execCommand('copy');
+                alert('✅ คัดลอก Token เรียบร้อยแล้ว!');
+            });
+        }
+    </script>
+</body>
+</html>
+

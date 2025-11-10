@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Firebase + Backend Integration (Simple) - Account Linking</title>
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
       * {
         margin: 0;
@@ -796,6 +798,30 @@
         <div id="userDetails">
           <!-- User details will be populated by JavaScript -->
         </div>
+        
+        <!-- Enhanced User Information Section -->
+        <div id="enhancedUserInfo" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; display: none;">
+          <h4 style="margin-top: 0; color: #333;">📊 ข้อมูลผู้ใช้แบบละเอียด</h4>
+          <div id="enhancedUserInfoContent">
+            <!-- Enhanced user info will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Additional User Info Section -->
+        <div id="additionalUserInfo" style="margin-top: 20px; padding: 15px; background: #e9f7fe; border-radius: 8px; border: 1px solid #b3e0ff; display: none;">
+          <h4 style="margin-top: 0; color: #0066cc;">📋 ข้อมูลเพิ่มเติมของผู้ใช้</h4>
+          <div id="additionalUserInfoContent">
+            <!-- Additional user info will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Enhanced User Detail Section -->
+        <div id="enhancedUserDetailSection" style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7; display: none;">
+          <h4 style="margin-top: 0; color: #856404;">📊 รายละเอียดผู้ใช้แบบละเอียด</h4>
+          <div id="enhancedUserDetailContent">
+            <!-- Enhanced user detail will be populated by JavaScript -->
+          </div>
+        </div>
 
         <div class="backend-info">
           <h4>🔄 Backend Sync Status</h4>
@@ -856,6 +882,15 @@
           <button id="logoutBtn" class="button secondary">🚪 Sign Out</button>
         </div>
 
+        <!-- LINE Custom Claims Management -->
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+          <h4 style="text-align: center; margin-bottom: 15px;">🔗 LINE Custom Claims Management</h4>
+          <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="updateLineClaimsBtn" class="button line">🔄 Update LINE Claims</button>
+            <button id="unlinkLineBtn" class="button" style="background: #dc3545; color: white;">🗑️ Unlink LINE Account</button>
+          </div>
+        </div>
+
         <!-- Linked Providers Management Section -->
         <div id="linkedProvidersSection" style="margin-top: 30px; display: none;">
           <h3>🔗 จัดการ Linked Providers</h3>
@@ -906,7 +941,16 @@
                 alt="LINE"
                 class="provider-icon"
               />
-              🟩 เชื่อมต่อ LINE
+              🟩 เชื่อมต่อ LINE (Popup)
+            </button>
+
+            <button id="realLineLinkCredentialBtn" class="button line" style="margin: 10px; width: calc(100% - 20px); background: linear-gradient(135deg, #00B900 0%, #00A000 100%); border: 2px solid #00B900;">
+              <img
+                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE5LjM2NSAxMi4wMDFDMTkuMzY1IDExLjQ0OSAxOC45MTYgMTEuMDAxIDE4LjM2NSAxMS4wMDFIMTUuNjM1QzE1LjA4NCAxMS4wMDEgMTQuNjM1IDExLjQ0OSAxNC42MzUgMTIuMDAxQzE0LjYzNSAxMi41NTIgMTUuMDg0IDEzLjAwMSAxNS42MzUgMTMuMDAxSDE4LjM2NUMxOC45MTYgMTMuMDAxIDE5LjM2NSAxMi41NTIgMTkuMzY1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMi4wMDEgMTkuMzY1QzExLjQ0OSAxOS4zNjUgMTEuMDAxIDE4LjkxNiAxMS4wMDEgMTguMzY1VjE1LjYzNUMxMS4wMDEgMTUuMDg0IDExLjQ0OSAxNC42MzUgMTIuMDAxIDE0LjYzNUMxMi41NTIgMTQuNjM1IDEzLjAwMSAxNS4wODQgMTMuMDAxIDE1LjYzNVYxOC4zNjVDMTMuMDAxIDE4LjkxNiAxMi41NTIgMTkuMzY1IDEyLjAwMSAxOS4zNjVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIuMDAxIDkuMzY1QzExLjQ0OSA5LjM2NSAxMS4wMDEgOC45MTYgMTEuMDAxIDguMzY1VjUuNjM1QzExLjAwMSA1LjA4NCAxMS40NDkgNC42MzUgMTIuMDAxIDQuNjM1QzEyLjU1MiA0LjYzNSAxMy4wMDEgNS4wODQgMTMuMDAxIDUuNjM1VjguMzY1QzEzLjAwMSA4LjkxNiAxMi41NTIgOS4zNjUgMTIuMDAxIDkuMzY1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQuNjM1IDEyLjAwMUM0LjYzNSAxMS40NDkgNS4wODQgMTEuMDAxIDUuNjM1IDExLjAwMUg4LjM2NUM4LjkxNiAxMS4wMDEgOS4zNjUgMTEuNDQ5IDkuMzY1IDEyLjAwMUM5LjM2NSAxMi41NTIgOC45MTYgMTMuMDAxIDguMzY1IDEzLjAwMUg1LjYzNUM1LjA4NCAxMy4wMDEgNC42MzUgMTIuNTUyIDQuNjM1IDEyLjAwMVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo="
+                alt="LINE"
+                class="provider-icon"
+              />
+              🔗 เชื่อมต่อ LINE (Credential)
             </button>
           </div>
 
@@ -981,6 +1025,49 @@
             <strong>📝 หมายเหตุ:</strong> การล็อกอินนี้จะไม่สร้างบัญชีใน Firebase
           </div>
         </div>
+
+        <!-- Google Simple Login (No Firebase) -->
+        <div class="button-group" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef;">
+          <h4 style="color: #dc3545; margin-bottom: 15px; text-align: center; font-size: 16px;">⚠️ Google Simple Login (No Firebase)</h4>
+          
+          <!-- Google Sign-In Button Container -->
+          <div id="googleSignInButton" style="margin: 10px 0;"></div>
+          
+          <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; font-size: 12px; color: #856404; text-align: center;">
+            <strong>📝 หมายเหตุ:</strong> การล็อกอินนี้จะไม่สร้างบัญชีใน Firebase และจะแสดง Google ID Token เท่านั้น
+          </div>
+          
+          <div style="margin-top: 8px; padding: 12px; background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 5px; font-size: 11px; color: #0066cc;">
+            <strong>⚙️ การตั้งค่า Google OAuth Client ID:</strong>
+            <ol style="margin: 8px 0 0 20px; padding: 0; font-size: 10px; color: #333; line-height: 1.6;">
+              <li>ไปที่ <a href="https://console.cloud.google.com/" target="_blank" style="color: #0066cc; text-decoration: underline;">Google Cloud Console</a></li>
+              <li>เลือก Project ของคุณ (หรือสร้างใหม่)</li>
+              <li>ไปที่: <strong>APIs & Services</strong> > <strong>Credentials</strong></li>
+              <li>คลิก: <strong>"Create Credentials"</strong> > <strong>"OAuth client ID"</strong></li>
+              <li>ถ้ายังไม่ได้ตั้งค่า OAuth consent screen ให้ตั้งค่าก่อน</li>
+              <li>เลือก Application type: <strong>"Web application"</strong></li>
+              <li>เพิ่ม <strong>Authorized JavaScript origins</strong>: 
+                <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">http://localhost:3000</code>
+              </li>
+              <li>คลิก <strong>"Create"</strong> และคัดลอก <strong>Client ID</strong></li>
+              <li>แก้ไขโค้ดที่บรรทัด: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">const GOOGLE_CLIENT_ID = '...';</code></li>
+            </ol>
+            <div style="margin-top: 8px; padding: 8px; background: #fff; border-left: 3px solid #ff9800; font-size: 10px; color: #856404;">
+              <strong>⚠️ หมายเหตุ:</strong> Firebase API Key ≠ Google OAuth Client ID<br>
+              ต้องสร้าง OAuth Client ID ใหม่ใน Google Cloud Console
+            </div>
+          </div>
+        </div>
+
+        <!-- Google Simple Login Result Section -->
+        <div id="googleSimpleResult" class="line-simple-result" style="margin-top: 20px;">
+          <h3>✅ ได้รับ Google ID Token สำเร็จ:</h3>
+          <pre id="googleSimpleIdToken"></pre>
+          <h3 style="margin-top: 1.5rem;">👤 ข้อมูลผู้ใช้:</h3>
+          <pre id="googleSimpleUserInfo"></pre>
+        </div>
+        <div id="googleSimpleError" class="line-simple-error"></div>
+        <button id="googleSimpleResetBtn" class="button secondary" style="display: none; margin-top: 1.5rem;">กลับไปล็อกอินใหม่</button>
 
         <!-- Email Authentication Form -->
         <div id="emailAuthForm" class="email-auth-form">
@@ -1077,6 +1164,7 @@
          onAuthStateChanged,
          signOut,
          linkWithPopup,
+         linkWithCredential,
          unlink
        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -1382,6 +1470,328 @@
         });
       }
 
+      // ============================================
+      // Google Simple Login Functions (No Firebase)
+      // ============================================
+      
+      // ตัวแปรสำหรับเก็บ Google Sign-In elements
+      const googleSimpleResult = document.getElementById('googleSimpleResult');
+      const googleSimpleIdToken = document.getElementById('googleSimpleIdToken');
+      const googleSimpleUserInfo = document.getElementById('googleSimpleUserInfo');
+      const googleSimpleError = document.getElementById('googleSimpleError');
+      const googleSimpleResetBtn = document.getElementById('googleSimpleResetBtn');
+      const googleSignInButton = document.getElementById('googleSignInButton');
+
+      /**
+       * ฟังก์ชันสำหรับจัดการ callback จาก Google Sign-In
+       * @param {Object} response - Response object จาก Google ที่มี credential
+       */
+      function handleGoogleSignIn(response) {
+        try {
+          console.log('🔑 Google Sign-In response received:', response);
+          
+          // ตรวจสอบว่ามี credential หรือไม่
+          if (!response.credential) {
+            throw new Error('ไม่พบ credential จาก Google');
+          }
+
+          // เก็บ ID token
+          const idToken = response.credential;
+          console.log('✅ Google ID Token received:', idToken.substring(0, 50) + '...');
+
+          // Decode JWT token เพื่อดึงข้อมูลผู้ใช้ (ไม่ verify signature - สำหรับแสดงผลเท่านั้น)
+          let userInfo = {};
+          try {
+            const tokenParts = idToken.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              userInfo = {
+                email: payload.email || 'N/A',
+                name: payload.name || 'N/A',
+                picture: payload.picture || 'N/A',
+                given_name: payload.given_name || 'N/A',
+                family_name: payload.family_name || 'N/A',
+                email_verified: payload.email_verified || false,
+                sub: payload.sub || 'N/A'
+              };
+              console.log('👤 Decoded user info:', userInfo);
+            }
+          } catch (decodeError) {
+            console.warn('⚠️ Could not decode token (non-critical):', decodeError);
+            userInfo = { error: 'ไม่สามารถ decode token ได้' };
+          }
+
+          // เก็บข้อมูลใน localStorage
+          localStorage.setItem('googleSimpleSuccess', 'true');
+          localStorage.setItem('googleSimpleIdToken', idToken);
+          localStorage.setItem('googleSimpleUserInfo', JSON.stringify(userInfo));
+
+          // แสดงผลลัพธ์
+          displayGoogleSimpleResult(idToken, userInfo);
+
+        } catch (error) {
+          console.error('❌ Google Sign-In error:', error);
+          showGoogleSimpleError(error.message || 'เกิดข้อผิดพลาดในการล็อกอิน Google');
+        }
+      }
+
+      /**
+       * ฟังก์ชันสำหรับแสดง error จาก Google Sign-In
+       * @param {string} message - ข้อความ error
+       */
+      function showGoogleSimpleError(message) {
+        if (googleSimpleError) {
+          googleSimpleError.textContent = `❌ Error: ${message}`;
+          googleSimpleError.style.display = 'block';
+        }
+        if (googleSimpleResult) {
+          googleSimpleResult.style.display = 'none';
+        }
+        if (googleSimpleResetBtn) {
+          googleSimpleResetBtn.style.display = 'block';
+        }
+      }
+
+      /**
+       * ฟังก์ชันสำหรับแสดงผลลัพธ์การล็อกอิน Google
+       * @param {string} idToken - Google ID Token
+       * @param {Object} userInfo - ข้อมูลผู้ใช้ที่ decode จาก token
+       */
+      function displayGoogleSimpleResult(idToken, userInfo) {
+        // ซ่อน error
+        if (googleSimpleError) {
+          googleSimpleError.style.display = 'none';
+        }
+
+        // แสดงผลลัพธ์
+        if (googleSimpleResult) {
+          googleSimpleResult.style.display = 'block';
+        }
+
+        // แสดง ID Token
+        if (googleSimpleIdToken) {
+          googleSimpleIdToken.textContent = idToken;
+        }
+
+        // แสดงข้อมูลผู้ใช้
+        if (googleSimpleUserInfo) {
+          const userInfoText = JSON.stringify(userInfo, null, 2);
+          googleSimpleUserInfo.textContent = userInfoText;
+        }
+
+        // แสดงปุ่ม reset
+        if (googleSimpleResetBtn) {
+          googleSimpleResetBtn.style.display = 'block';
+        }
+
+        // ซ่อน Google Sign-In button
+        if (googleSignInButton) {
+          googleSignInButton.style.display = 'none';
+        }
+      }
+
+      /**
+       * ฟังก์ชันสำหรับ reset Google Simple Login
+       */
+      function resetGoogleSimpleLogin() {
+        // Clear localStorage
+        localStorage.removeItem('googleSimpleSuccess');
+        localStorage.removeItem('googleSimpleIdToken');
+        localStorage.removeItem('googleSimpleUserInfo');
+
+        // Hide result and error sections
+        if (googleSimpleResult) googleSimpleResult.style.display = 'none';
+        if (googleSimpleError) googleSimpleError.style.display = 'none';
+        if (googleSimpleResetBtn) googleSimpleResetBtn.style.display = 'none';
+
+        // Show Google Sign-In button again
+        if (googleSignInButton) {
+          googleSignInButton.style.display = 'block';
+          // Re-initialize Google Sign-In button
+          initializeGoogleSignIn();
+        }
+      }
+
+      /**
+       * ฟังก์ชันสำหรับ initialize Google Sign-In button
+       * หมายเหตุ: ต้องใช้ Google OAuth Client ID (ไม่ใช่ Firebase API Key)
+       * สามารถหาได้จาก Google Cloud Console > APIs & Services > Credentials
+       * 
+       * วิธีหา Google OAuth Client ID:
+       * 1. ไปที่ Google Cloud Console: https://console.cloud.google.com/
+       * 2. เลือก Project ของคุณ (หรือสร้างใหม่)
+       * 3. ไปที่ APIs & Services > Credentials
+       * 4. คลิก "Create Credentials" > "OAuth client ID"
+       * 5. เลือก Application type: "Web application"
+       * 6. ตั้งชื่อและเพิ่ม Authorized JavaScript origins (เช่น http://localhost:3000)
+       * 7. คัดลอก Client ID ที่ได้มา (รูปแบบ: xxxxxx.apps.googleusercontent.com)
+       */
+      function initializeGoogleSignIn() {
+        // รอให้ Google Identity Services SDK โหลดเสร็จ
+        if (typeof google !== 'undefined' && google.accounts) {
+          console.log('🔑 Initializing Google Sign-In button...');
+          
+          // ⚠️ สำคัญ: ต้องใช้ Google OAuth Client ID (ไม่ใช่ Firebase API Key)
+          // 
+          // 📍 วิธีหา Google OAuth Client ID:
+          // 
+          // วิธีที่ 1: จาก Google Cloud Console (แนะนำ)
+          // 1. ไปที่: https://console.cloud.google.com/
+          // 2. เลือก Project ของคุณ (หรือสร้างใหม่)
+          // 3. ไปที่: APIs & Services > Credentials
+          // 4. คลิก: "Create Credentials" > "OAuth client ID"
+          // 5. ถ้ายังไม่ได้ตั้งค่า OAuth consent screen:
+          //    - คลิก "Configure Consent Screen"
+          //    - เลือก "External" (หรือ "Internal" ถ้าเป็น Google Workspace)
+          //    - กรอกข้อมูล App name, User support email
+          //    - คลิก "Save and Continue" จนเสร็จ
+          // 6. กลับมาที่ Credentials > Create Credentials > OAuth client ID
+          // 7. เลือก Application type: "Web application"
+          // 8. ตั้งชื่อ (เช่น "My Web App")
+          // 9. Authorized JavaScript origins:
+          //    - สำหรับ local: http://localhost:3000
+          //    - สำหรับ local (port อื่น): http://localhost:PORT
+          //    - สำหรับ production: https://yourdomain.com
+          // 10. Authorized redirect URIs (ถ้าจำเป็น):
+          //     - http://localhost:3000 (หรือ domain ของคุณ)
+          // 11. คลิก "Create"
+          // 12. คัดลอก "Client ID" (รูปแบบ: xxxxxx.apps.googleusercontent.com)
+          // 
+          // วิธีที่ 2: จาก Firebase Console (ถ้าใช้ Firebase)
+          // 1. ไปที่: https://console.firebase.google.com/
+          // 2. เลือก Project ของคุณ
+          // 3. ไปที่: Project Settings (⚙️) > General
+          // 4. เลื่อนลงไปที่ "Your apps" section
+          // 5. คลิกที่ Web app ของคุณ
+          // 6. ดูที่ "Web API Key" - นี่ไม่ใช่ Client ID ที่ต้องการ!
+          // 7. ต้องไปที่ Google Cloud Console เพื่อสร้าง OAuth Client ID แทน
+          // 
+          // ⚠️ หมายเหตุ:
+          // - Firebase API Key ≠ Google OAuth Client ID
+          // - ต้องสร้าง OAuth Client ID ใหม่ใน Google Cloud Console
+          // - Client ID จะมีรูปแบบ: xxxxxx-xxxxx.apps.googleusercontent.com
+          // 
+          // ตัวอย่าง Client ID:
+          // '123456789-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com'
+          const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com';
+          
+          // ตรวจสอบว่า client_id ถูกตั้งค่าหรือยัง
+          if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE.apps.googleusercontent.com') {
+            console.error('❌ Google OAuth Client ID ยังไม่ได้ตั้งค่า!');
+            showGoogleSimpleError(
+              '⚠️ ยังไม่ได้ตั้งค่า Google OAuth Client ID\n\n' +
+              'กรุณา:\n' +
+              '1. ไปที่ Google Cloud Console > APIs & Services > Credentials\n' +
+              '2. สร้าง OAuth 2.0 Client ID (Web application)\n' +
+              '3. คัดลอก Client ID และใส่ในโค้ดที่บรรทัด: const GOOGLE_CLIENT_ID = "...";'
+            );
+            
+            // แสดงคำแนะนำใน UI
+            if (googleSignInButton) {
+              googleSignInButton.innerHTML = `
+                <div style="padding: 20px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; text-align: center;">
+                  <h4 style="color: #856404; margin-bottom: 10px;">⚠️ ต้องตั้งค่า Google OAuth Client ID</h4>
+                  <p style="color: #856404; font-size: 14px; margin-bottom: 10px;">
+                    กรุณาแก้ไขโค้ดที่บรรทัด <code>const GOOGLE_CLIENT_ID = ...</code>
+                  </p>
+                  <p style="color: #856404; font-size: 12px;">
+                    หา Client ID ได้จาก:<br>
+                    Google Cloud Console > APIs & Services > Credentials
+                  </p>
+                </div>
+              `;
+            }
+            return;
+          }
+          
+          try {
+            google.accounts.id.initialize({
+              client_id: GOOGLE_CLIENT_ID,
+              callback: handleGoogleSignIn,
+              auto_select: false,
+              cancel_on_tap_outside: true
+            });
+
+            // Render Google Sign-In button
+            // ใช้ try-catch เพื่อจับ error จาก renderButton
+            try {
+              google.accounts.id.renderButton(
+                googleSignInButton,
+                {
+                  type: 'standard',
+                  theme: 'outline',
+                  size: 'large',
+                  text: 'signin_with',
+                  width: '100%',
+                  logo_alignment: 'left'
+                }
+              );
+
+              console.log('✅ Google Sign-In button initialized with Client ID:', GOOGLE_CLIENT_ID.substring(0, 20) + '...');
+            } catch (renderError) {
+              console.error('❌ Error rendering Google Sign-In button:', renderError);
+              // Error 403 หรือ "client ID not found" มักเกิดจาก client_id ไม่ถูกต้อง
+              if (renderError.message && renderError.message.includes('not found')) {
+                showGoogleSimpleError(
+                  '❌ Google OAuth Client ID ไม่ถูกต้อง\n\n' +
+                  'Error: The given client ID is not found\n\n' +
+                  'กรุณาตรวจสอบ:\n' +
+                  '1. Google OAuth Client ID ถูกต้องหรือไม่ (รูปแบบ: xxxxxx.apps.googleusercontent.com)\n' +
+                  '2. Client ID นี้อยู่ใน Google Cloud Console Project ที่ถูกต้องหรือไม่\n' +
+                  '3. Authorized JavaScript origins ตั้งค่าให้รวม domain ปัจจุบันหรือไม่\n' +
+                  '   (เช่น http://localhost:3000 หรือ https://yourdomain.com)'
+                );
+              } else {
+                showGoogleSimpleError(
+                  '❌ เกิดข้อผิดพลาดในการ render Google Sign-In button\n\n' +
+                  'Error: ' + renderError.message
+                );
+              }
+            }
+          } catch (error) {
+            console.error('❌ Error initializing Google Sign-In:', error);
+            showGoogleSimpleError(
+              '❌ เกิดข้อผิดพลาดในการ initialize Google Sign-In\n\n' +
+              'Error: ' + error.message + '\n\n' +
+              'กรุณาตรวจสอบ:\n' +
+              '1. Google OAuth Client ID ถูกต้องหรือไม่\n' +
+              '2. Authorized JavaScript origins ตั้งค่าถูกต้องหรือไม่\n' +
+              '3. Google Identity Services SDK โหลดเสร็จแล้วหรือไม่'
+            );
+          }
+        } else {
+          // ถ้า SDK ยังไม่โหลด ให้รอสักครู่แล้วลองใหม่
+          console.log('⏳ Waiting for Google Identity Services SDK...');
+          setTimeout(initializeGoogleSignIn, 500);
+        }
+      }
+
+      // Event listener สำหรับปุ่ม reset
+      if (googleSimpleResetBtn) {
+        googleSimpleResetBtn.addEventListener('click', resetGoogleSimpleLogin);
+      }
+
+      // ตรวจสอบว่ามีข้อมูล Google Simple Login อยู่แล้วหรือไม่ (เมื่อโหลดหน้าใหม่)
+      function checkGoogleSimpleLoginStatus() {
+        const googleSimpleSuccess = localStorage.getItem('googleSimpleSuccess');
+        const googleSimpleIdToken = localStorage.getItem('googleSimpleIdToken');
+        const googleSimpleUserInfo = localStorage.getItem('googleSimpleUserInfo');
+
+        if (googleSimpleSuccess && googleSimpleIdToken) {
+          console.log('✅ Found existing Google Simple login session');
+          const userInfo = googleSimpleUserInfo ? JSON.parse(googleSimpleUserInfo) : {};
+          displayGoogleSimpleResult(googleSimpleIdToken, userInfo);
+        } else {
+          // Initialize Google Sign-In button ถ้ายังไม่มี session
+          initializeGoogleSignIn();
+        }
+      }
+
+      // เรียกใช้เมื่อหน้าเว็บโหลดเสร็จ
+      window.addEventListener('load', () => {
+        setTimeout(checkGoogleSimpleLoginStatus, 1000); // รอให้ Google SDK โหลดเสร็จ
+      });
+
 
       // Email Authentication Event Listeners
       const emailLoginBtn = document.getElementById("emailLoginBtn");
@@ -1611,13 +2021,34 @@
         });
       }
 
-      // Check for LINE callback - Handle both regular and simple LINE login
+      // Check for LINE callback - Handle both regular and simple LINE login, and linking
       const urlParams = new URLSearchParams(window.location.search);
       const lineCode = urlParams.get("code");
       const lineState = urlParams.get("state");
       const lineError = urlParams.get("error");
+      
+      // ตรวจสอบว่าเป็น linking operation หรือไม่
+      const isLinkingMode = localStorage.getItem('lineLinkMode') === 'true';
 
-      if (lineCode && lineState) {
+      if (isLinkingMode && lineCode && lineState) {
+        // Process LINE linking callback
+        console.log('🔗 Processing LINE linking callback...');
+        localStorage.removeItem('lineLinkMode');
+        localStorage.removeItem('lineLinkState');
+        localStorage.removeItem('lineLinkTimestamp');
+        
+        // เรียก function เพื่อ process credential และ link
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('code');
+        newUrl.searchParams.delete('state');
+        newUrl.searchParams.set('line_link_code', lineCode);
+        window.history.replaceState({}, document.title, newUrl.pathname + newUrl.search);
+        
+        // รอให้ auth state settle ก่อน
+        setTimeout(() => {
+          realLineProviderLinkWithCredential();
+        }, 500);
+      } else if (lineCode && lineState) {
         // Process LINE callback - Try both endpoints
         console.log("LINE callback detected, processing...");
 
@@ -2045,7 +2476,19 @@
       async function fetchUserRecordFromFirebase(firebaseUid) {
         try {
           // ใช้ LOCAL_SERVICE_URL ที่กำหนดไว้แล้วในไฟล์
-          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/user-record/${firebaseUid}`);
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/user-record/${firebaseUid}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          // ตรวจสอบว่า response สำเร็จหรือไม่
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+          }
+          
           const data = await response.json();
           
           if (data.success && data.userRecord) {
@@ -2055,6 +2498,7 @@
           }
         } catch (error) {
           console.error('❌ Error fetching user record from Firebase:', error);
+          console.error('URL:', `${LOCAL_SERVICE_URL}/api/auth/user-record/${firebaseUid}`);
           throw error;
         }
       }
@@ -2066,25 +2510,16 @@
        * @returns {Object} User record ในรูปแบบที่ต้องการ
        */
       function formatUserRecord(adminUserRecord, clientUser) {
-        // กำหนด providerId เป็น 'firebase' (default)
-        let providerId = 'firebase';
-        let rawId = clientUser?.uid || adminUserRecord?.uid || '';
-        
-        // หา primary provider (provider แรก) เพื่อหา rawId
-        const providerData = adminUserRecord?.providerData || clientUser?.providerData || [];
-        if (providerData.length > 0) {
-          const primaryProvider = providerData[0];
-          // providerId ใช้ 'firebase' เป็น default
-          // rawId จะเป็น uid ของ provider หลัก (เช่น LINE user ID, Google user ID)
-          rawId = primaryProvider.uid || rawId;
-        }
-        
-        // ถ้ามี CustomClaims ที่ระบุ providerId ให้ใช้ค่าเหล่านั้น
+        // ดึง CustomClaims จาก Firebase
         const customClaims = adminUserRecord?.customClaims || {};
-        if (customClaims.providerId) {
-          // ใช้ providerId จาก customClaims ถ้ามี
-          // แต่ rawId ยังคงมาจาก provider.uid
-        }
+        
+        // กำหนด providerId และ rawId ที่ระดับบน (ไม่ใช้จาก CustomClaims)
+        // providerId ใช้ 'firebase' เสมอ และ rawId ใช้ Firebase UID เสมอ
+        const providerId = 'firebase';
+        const rawId = clientUser?.uid || adminUserRecord?.uid || '';
+        
+        // ดึง providerData เพื่อใช้ในการสร้าง ProviderUserInfo
+        const providerData = adminUserRecord?.providerData || clientUser?.providerData || [];
         
         // สร้าง ProviderUserInfo array
         const providerUserInfo = providerData.map(provider => ({
@@ -2095,6 +2530,20 @@
           rawId: provider.uid || null
         })).filter(provider => provider.providerId !== null);
         
+        // สร้าง CustomClaims object โดยแสดงค่าทั้งหมดจาก CustomClaims ใน Firebase โดยตรง
+        let formattedCustomClaims = null;
+        
+        if (customClaims && Object.keys(customClaims).length > 0) {
+          // คัดลอก CustomClaims ทั้งหมดจาก Firebase โดยตรง (ไม่เติมจากที่อื่น)
+          formattedCustomClaims = { ...customClaims };
+          
+          // แปลง photoUrl เป็น photoURL ถ้ามี (เพื่อให้สอดคล้องกับรูปแบบที่ต้องการ)
+          if (formattedCustomClaims.photoUrl && !formattedCustomClaims.photoURL) {
+            formattedCustomClaims.photoURL = formattedCustomClaims.photoUrl;
+            delete formattedCustomClaims.photoUrl;
+          }
+        }
+        
         // สร้าง user record object ในรูปแบบที่ต้องการ
         const formattedRecord = {
           displayName: adminUserRecord?.displayName || clientUser?.displayName || null,
@@ -2102,16 +2551,24 @@
           photoUrl: adminUserRecord?.photoURL || adminUserRecord?.photoUrl || clientUser?.photoURL || null,
           providerId: providerId,
           rawId: rawId,
-          CustomClaims: adminUserRecord?.customClaims || customClaims || {},
           Disabled: adminUserRecord?.disabled !== undefined ? adminUserRecord.disabled : false,
           EmailVerified: adminUserRecord?.emailVerified !== undefined ? adminUserRecord.emailVerified : 
                          (clientUser?.emailVerified !== undefined ? clientUser.emailVerified : false),
           ProviderUserInfo: providerUserInfo
         };
         
-        // ถ้า CustomClaims ว่างเปล่าให้ลบออก
-        if (formattedRecord.CustomClaims && Object.keys(formattedRecord.CustomClaims).length === 0) {
-          delete formattedRecord.CustomClaims;
+        // ลบค่าที่เป็น null ใน CustomClaims และเพิ่ม CustomClaims ถ้ามีข้อมูล
+        if (formattedCustomClaims) {
+          Object.keys(formattedCustomClaims).forEach(key => {
+            if (formattedCustomClaims[key] === null || formattedCustomClaims[key] === undefined) {
+              delete formattedCustomClaims[key];
+            }
+          });
+          
+          // เพิ่ม CustomClaims ถ้ายังมีข้อมูลอยู่
+          if (Object.keys(formattedCustomClaims).length > 0) {
+            formattedRecord.CustomClaims = formattedCustomClaims;
+          }
         }
         
         // ถ้า ProviderUserInfo ว่างเปล่าให้ลบออก
@@ -2498,15 +2955,103 @@
 
 
       // Auth state listener for Firebase
-      auth.onAuthStateChanged((user) => {
+      auth.onAuthStateChanged(async (user) => {
         console.log(
           "Firebase Auth State Changed:",
-          user ? "User logged in" : "No user"
+          user ? `User logged in (UID: ${user.uid})` : "No user"
         );
         checkUserStatus();
       });
 
-      // Check user status on page load
+      /**
+       * Handles the callback from LINE after the user logs in.
+       * This function implements the client-side part of the user's logic flow diagram.
+       */
+      async function handleLineLinkCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const lineCode = urlParams.get("code");
+        const isLinkFlow = localStorage.getItem('lineLinkFlow') === 'true';
+
+        // Only proceed if we have a code and we are in the link flow
+        if (lineCode && isLinkFlow) {
+          console.log('🔗 [Flow] Detected LINE link callback.');
+          localStorage.removeItem('lineLinkFlow'); // Clean up the flag immediately
+
+          // Clean the URL to avoid re-processing on page reload
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('code');
+          newUrl.searchParams.delete('state');
+          window.history.replaceState({}, document.title, newUrl.pathname + newUrl.search);
+
+          try {
+            // Ensure Firebase auth state is ready and get the current user
+            const currentUser = await new Promise((resolve, reject) => {
+              const unsubscribe = onAuthStateChanged(auth, (user) => {
+                unsubscribe();
+                if (user) {
+                  resolve(user);
+                } else {
+                  // This can happen if the page reloads and auth state is not yet settled.
+                  // We wait a bit and try again.
+                  setTimeout(() => {
+                    if (auth.currentUser) {
+                      resolve(auth.currentUser);
+                    } else {
+                      reject(new Error('User not logged in after LINE callback. Please log in and try again.'));
+                    }
+                  }, 1000);
+                }
+              });
+            });
+
+            console.log(`[Flow] User is logged in: ${currentUser.uid}. Sending code to backend...`);
+
+            // Send code and UID to the new backend endpoint
+            const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/update-claims-with-code`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: currentUser.uid, code: lineCode })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+              throw new Error(data.error || 'Backend failed to update claims.');
+            }
+
+        console.log('✅ [Flow] Backend successfully updated claims.');
+
+        // Force refresh the token to get new claims, as per the logic flow diagram
+        console.log('🔄 [Flow] Refreshing Firebase ID token to get new claims...');
+        await currentUser.getIdToken(true);
+        console.log('✅ [Flow] Token refreshed. New claims are now available on the client.');
+
+        // Check if the backend sent the updated user record and display it
+        if (data.userRecord) {
+            console.log('✅ Received updated user record. Refreshing UI without reload.');
+            alert('✅ LINE account successfully connected! Refreshing user data...');
+            
+            // Update the main user info box
+            checkUserStatus(); 
+            
+            // Simulate a click on the "Show User Record" button to refresh the detailed view
+            // This reuses the existing logic to fetch and display the full, updated record.
+            document.getElementById('showUserRecordBtn').click();
+        } else {
+            // Fallback to old method if userRecord is not returned
+            alert('✅ LINE account successfully connected! The page will now reload to show the updated information.');
+            window.location.reload();
+        }
+
+          } catch (error) {
+            console.error('❌ [Flow] Error during LINE link callback processing:', error);
+            alert(`Error connecting LINE account: ${error.message}`);
+          }
+        }
+      }
+
+      // On page load, check for LINE callback and then check user status
+      handleLineLinkCallback();
       checkUserStatus();
 
       // User Record Display Event Listeners
@@ -3008,7 +3553,7 @@
       
       /**
        * Real LINE Provider Link
-       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication
+       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication (ใช้ popup)
        */
       async function realLineProviderLink() {
         try {
@@ -3072,6 +3617,149 @@
           } else if (error.code === 'auth/credential-already-in-use') {
             alert('LINE account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
           } else if (error.code === 'auth/popup-closed-by-user') {
+            alert('การเชื่อมต่อ LINE ถูกยกเลิกโดยผู้ใช้');
+          } else if (error.code === 'auth/operation-not-allowed') {
+            alert('LINE Login ไม่ได้เปิดใช้งานใน Firebase Console');
+          } else {
+            alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ LINE: ${error.message}`);
+          }
+        }
+      }
+      
+      /**
+       * Real LINE Provider Link with Credential
+       * เชื่อมต่อ LINE Provider จริงผ่าน Firebase Authentication (ใช้ credential)
+       */
+      async function realLineProviderLinkWithCredential() {
+        try {
+          console.log('🔗 Real LINE Provider Link with Credential started...');
+          
+          // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('กรุณาล็อกอินก่อนที่จะเชื่อมต่อ provider อื่น');
+            return;
+          }
+          
+          // ตรวจสอบว่า LINE provider เชื่อมต่อแล้วหรือยัง
+          const existingProviders = currentUser.providerData || [];
+          const isLineLinked = existingProviders.some(p => p.providerId === 'oidc.line');
+          if (isLineLinked) {
+            alert('LINE provider เชื่อมต่อแล้ว กรุณา unlink ก่อนเชื่อมต่อใหม่');
+            return;
+          }
+          
+          // ตรวจสอบ URL parameters สำหรับ callback จาก LINE
+          const urlParams = new URLSearchParams(window.location.search);
+          const lineCode = urlParams.get('line_link_code');
+          const linkError = urlParams.get('line_link_error');
+          
+          if (linkError) {
+            // มี error จาก LINE callback
+            alert(`การเชื่อมต่อ LINE ล้มเหลว: ${linkError}`);
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+          }
+          
+          if (lineCode) {
+            // Step 3: Exchange code for LINE credential
+            console.log('🔄 Exchanging code for LINE credential...');
+            const credentialResponse = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/credential-for-link`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                code: lineCode
+              })
+            });
+            
+            const credentialData = await credentialResponse.json();
+            
+            if (!credentialData.success) {
+              throw new Error(credentialData.error || 'Failed to get LINE credential');
+            }
+            
+            // Step 4: สร้าง Firebase credential จาก LINE ID token
+            console.log('🔑 Creating Firebase credential from LINE ID token...');
+            const lineProvider = new OAuthProvider('oidc.line');
+            const credential = lineProvider.credential(credentialData.id_token);
+            
+            // Step 5: Link credential to current user
+            console.log('🔗 Linking LINE credential to current user...');
+            const result = await linkWithCredential(currentUser, credential);
+            
+            console.log('✅ LINE provider linked successfully with credential:', result);
+            
+            // ตรวจสอบ email ซ้ำกันหลัง link
+            const newEmail = result.user.email;
+            if (checkDuplicateEmail(newEmail, existingProviders)) {
+              console.log('⚠️ Duplicate email detected, but link was successful');
+              alert(`⚠️ หมายเหตุ: Email ${newEmail} ถูกใช้งานโดย provider อื่นแล้ว\n\nแต่การเชื่อมต่อสำเร็จเนื่องจาก Firebase รองรับการ link providers ต่าง email`);
+            } else {
+              console.log('✅ New email linked successfully:', newEmail);
+            }
+            
+            // แสดงผลลัพธ์
+            showRealProviderResult({
+              providerId: 'oidc.line',
+              providerName: 'LINE',
+              providerIcon: '🟩',
+              email: result.user.email,
+              displayName: result.user.displayName,
+              photoURL: result.user.photoURL,
+              uid: result.user.uid,
+              linkedAt: new Date().toISOString(),
+              isReal: true
+            });
+            
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // แสดงข้อความสำเร็จ
+            alert('✅ เชื่อมต่อ LINE สำเร็จ! (ใช้ credential)');
+            
+            // อัปเดตปุ่ม provider
+            updateProviderButtons(result.user.providerData);
+            
+            // อัปเดต UI
+            window.location.reload();
+            
+            return;
+          }
+          
+          // Step 1: รับ LINE authorization URL สำหรับ linking
+          console.log('📥 Getting LINE authorization URL for linking...');
+          const authUrlResponse = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/auth-url`);
+          const authUrlData = await authUrlResponse.json();
+          
+          if (!authUrlData.success) {
+            throw new Error(authUrlData.error || 'Failed to get LINE authorization URL');
+          }
+          
+          // เก็บ state และ flag สำหรับ linking
+          if (authUrlData.state) {
+            localStorage.setItem('lineLinkState', authUrlData.state);
+            localStorage.setItem('lineLinkTimestamp', Date.now().toString());
+            localStorage.setItem('lineLinkMode', 'true'); // Flag ว่าเป็น linking operation
+          }
+          
+          console.log('🔐 Redirecting to LINE login page...');
+          window.location.href = authUrlData.authUrl;
+          
+        } catch (error) {
+          console.error('❌ Real LINE Provider link with credential error:', error);
+          
+          // Clear URL parameters on error
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          // จัดการ error cases
+          if (error.code === 'auth/provider-already-linked') {
+            alert('LINE account นี้เชื่อมต่อกับบัญชีอื่นแล้ว');
+          } else if (error.code === 'auth/credential-already-in-use') {
+            alert('LINE account นี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+          } else if (error.message && error.message.includes('closed')) {
             alert('การเชื่อมต่อ LINE ถูกยกเลิกโดยผู้ใช้');
           } else if (error.code === 'auth/operation-not-allowed') {
             alert('LINE Login ไม่ได้เปิดใช้งานใน Firebase Console');
@@ -3425,20 +4113,30 @@
       if (logoutBtn) {
         logoutBtn.addEventListener("click", async () => {
           try {
-            // Sign out from Firebase Auth
+            console.log("🔄 Starting user logout process...");
+            // Sign out from Firebase Auth first
             await auth.signOut();
+            console.log("✅ Firebase sign out successful.");
 
-            // Clear LINE data
+            // Clear all known localStorage items related to any login session
+            console.log("🧹 Clearing all login-related localStorage items...");
             localStorage.removeItem("lineProfile");
             localStorage.removeItem("lineIdTokenData");
             localStorage.removeItem("lineUser");
             localStorage.removeItem("lineIdToken");
-            localStorage.removeItem("lineAccessToken"); // Clear access token on logout
-            
-            // Clear LINE Simple data
+            localStorage.removeItem("lineAccessToken");
             localStorage.removeItem("lineSimpleSuccess");
             localStorage.removeItem("lineSimpleIdToken");
             localStorage.removeItem("lineSimpleAccessToken");
+            localStorage.removeItem("lineAuthState");
+            localStorage.removeItem("lineAuthTimestamp");
+            localStorage.removeItem("lineLinkFlow");
+            localStorage.removeItem("postLineLoginAction");
+            // Clear Google Simple Login data
+            localStorage.removeItem("googleSimpleSuccess");
+            localStorage.removeItem("googleSimpleIdToken");
+            localStorage.removeItem("googleSimpleUserInfo");
+            console.log("✅ All localStorage items cleared.");
 
             // Hide email form if it's showing
             const emailForm = document.getElementById('emailAuthForm');
@@ -3446,12 +4144,15 @@
               emailForm.classList.remove('show');
             }
 
-            console.log("✅ User signed out successfully");
+            console.log("✅ User signed out completely. Reloading page...");
 
-            // Refresh page to update UI
+            // Refresh page to update UI to the clean login state
             window.location.reload();
           } catch (error) {
             console.error("❌ Logout error:", error);
+            // In case of error, still try to clear storage and reload
+            localStorage.clear(); // Force clear everything as a fallback
+            window.location.reload();
           }
         });
       }
@@ -3509,12 +4210,135 @@
         });
       }
       
-      // Real LINE Provider Link Button
+      // Real LINE Provider Link Button (Popup)
       const realLineLinkBtn = document.getElementById('realLineLinkBtn');
       if (realLineLinkBtn) {
         realLineLinkBtn.addEventListener('click', async () => {
           await realLineProviderLink();
         });
+      }
+      
+      // Real LINE Provider Link Button (Credential) - Changed to update custom claims
+      const realLineLinkCredentialBtn = document.getElementById('realLineLinkCredentialBtn');
+      if (realLineLinkCredentialBtn) {
+        realLineLinkCredentialBtn.addEventListener('click', async () => {
+          // Changed to call updateLineClaims as per user request
+          await updateLineClaims();
+        });
+      }
+
+      // --- New Functions for LINE Custom Claims ---
+
+      // Helper function to call the update claims API
+      async function callUpdateLineClaimsApi(uid, token) {
+        try {
+          console.log(`🔄 Calling API to update LINE claims for UID: ${uid}`);
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/update-claims`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: uid,
+              lineAccessToken: token
+            })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            console.log('✅ LINE claims updated successfully:', data.updatedClaims);
+            alert('✅ LINE custom claims have been successfully updated!\nPage will now reload to reflect changes.');
+            window.location.reload();
+          } else {
+            throw new Error(data.error || 'Failed to update claims');
+          }
+        } catch (error) {
+          console.error('❌ Error in callUpdateLineClaimsApi:', error);
+          alert(`Error updating claims: ${error.message}`);
+        }
+      }
+
+      // Function to update LINE Custom Claims (initiates login if needed)
+      async function updateLineClaims() {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('❌ Please log in to a Firebase account first.');
+            return;
+          }
+
+          const lineAccessToken = localStorage.getItem("lineAccessToken");
+          if (lineAccessToken) {
+            // If token exists, just update the claims
+            console.log('✅ Found existing LINE token. Updating claims directly.');
+            await callUpdateLineClaimsApi(currentUser.uid, lineAccessToken);
+          } else {
+            // If no token, initiate LINE login flow
+            console.log('🚀 No LINE token found. Initiating LINE login for claims update...');
+            localStorage.setItem('postLineLoginAction', 'updateClaims');
+            
+            // This logic is similar to the main LINE login button
+            const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/auth-url`);
+            const authData = await response.json();
+
+            if (authData.success) {
+              console.log('🔐 Redirecting to LINE for authentication...');
+              window.location.href = authData.authUrl;
+            } else {
+              throw new Error(authData.error || 'Failed to get LINE authorization URL');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error in updateLineClaims flow:', error);
+          alert(`Error: ${error.message}`);
+          localStorage.removeItem('postLineLoginAction'); // Clean up on failure
+        }
+      }
+
+      // Function to unlink LINE account (clear claims)
+      async function unlinkLineAccount() {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            alert('❌ Please log in to a Firebase account first.');
+            return;
+          }
+
+          if (!confirm('❓ Are you sure you want to unlink your LINE data?\nThis will remove LINE-specific custom claims from your Firebase account.')) {
+            return;
+          }
+
+          console.log(`🗑️ Calling API to unlink LINE account for UID: ${currentUser.uid}`);
+
+          const response = await fetch(`${LOCAL_SERVICE_URL}/api/auth/line/unlink`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: currentUser.uid })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            console.log('✅ LINE account unlinked successfully.');
+            alert('✅ LINE account data has been unlinked successfully!\nPage will now reload.');
+            window.location.reload();
+          } else {
+            throw new Error(data.error || 'Failed to unlink account');
+          }
+        } catch (error) {
+          console.error('❌ Error unlinking LINE account:', error);
+          alert(`Error: ${error.message}`);
+        }
+      }
+
+      // Event Listeners for new buttons
+      const updateLineClaimsBtn = document.getElementById('updateLineClaimsBtn');
+      if (updateLineClaimsBtn) {
+        updateLineClaimsBtn.addEventListener('click', updateLineClaims);
+      }
+
+      const unlinkLineBtn = document.getElementById('unlinkLineBtn');
+      if (unlinkLineBtn) {
+        unlinkLineBtn.addEventListener('click', unlinkLineAccount);
       }
 
     </script>

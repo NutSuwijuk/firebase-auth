@@ -15,10 +15,28 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Middleware - CORS Configuration
+// รองรับ origin หลายตัวสำหรับ development
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:5500',
+    'http://localhost:5500',
+    'http://127.0.0.1:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(express.static('.')); // Serve static files from current directory
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 // Mock Database (In-memory storage)
 const users = [];
@@ -38,12 +56,12 @@ app.get('/api/health', (req, res) => {
 
 // LINE Login Configuration
 const LINE_CONFIG = {
-  // CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
-  // CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
-  CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2008286810",
-  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "49979452bb7abd3bc9fa6121423cec8e",
-  REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://localhost:3000/index.html",
-  SIMPLE_REDIRECT_URI: process.env.LINE_SIMPLE_REDIRECT_URI || "http://localhost:3000/index.html"
+  CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2007733529",
+  CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "4e3197d83a8d9836ae5794fda50b698a",
+  // CHANNEL_ID: process.env.LINE_CHANNEL_ID || "2008286810",
+  // CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET || "49979452bb7abd3bc9fa6121423cec8e",
+  REDIRECT_URI: process.env.LINE_REDIRECT_URI || "http://127.0.0.1:5500/index_uat.html",
+  SIMPLE_REDIRECT_URI: process.env.LINE_SIMPLE_REDIRECT_URI || "http://127.0.0.1:5500/index_uat.html"
 };
 
 
@@ -796,6 +814,100 @@ app.post('/api/auth/line/token-simple', async (req, res) => {
 });
 
 /**
+ * LINE Login - Get Credential for Link (สำหรับใช้กับ linkWithCredential)
+ * Endpoint นี้จะ return LINE ID token และ access token สำหรับสร้าง Firebase credential
+ */
+app.post('/api/auth/line/credential-for-link', async (req, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) {
+            return res.status(400).json({ 
+                success: false, 
+                error: "Authorization code is required" 
+            });
+        }
+
+        console.log('🔗 Getting LINE credential for linking...');
+
+        // Exchange code for tokens
+        const tokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/token',
+            new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: LINE_CONFIG.REDIRECT_URI,
+                client_id: LINE_CONFIG.CHANNEL_ID,
+                client_secret: LINE_CONFIG.CHANNEL_SECRET
+            }), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+
+        const { access_token, id_token } = tokenResponse.data;
+
+        // Verify ID token to get user info
+        const idTokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/verify', 
+            new URLSearchParams({
+                id_token: id_token,
+                client_id: LINE_CONFIG.CHANNEL_ID
+            }), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        );
+
+        const idTokenData = idTokenResponse.data;
+
+        // Get LINE profile
+        const profileResponse = await axios.get('https://api.line.me/v2/profile', {
+            headers: {
+                'Authorization': `Bearer ${access_token}`
+            }
+        });
+
+        const lineProfile = profileResponse.data;
+
+        console.log('✅ LINE credential obtained for linking:', {
+            userId: lineProfile.userId,
+            email: idTokenData.email,
+            hasIdToken: !!id_token
+        });
+
+        res.json({
+            success: true,
+            id_token: id_token,
+            access_token: access_token,
+            credentialData: {
+                idToken: id_token,
+                accessToken: access_token,
+                providerId: 'oidc.line',
+                email: idTokenData.email,
+                emailVerified: idTokenData.email_verified,
+                displayName: lineProfile.displayName,
+                photoURL: lineProfile.pictureUrl,
+                userId: lineProfile.userId
+            },
+            profile: {
+                userId: lineProfile.userId,
+                displayName: lineProfile.displayName,
+                pictureUrl: lineProfile.pictureUrl,
+                statusMessage: lineProfile.statusMessage
+            }
+        });
+
+    } catch (error) {
+        console.error("❌ Error getting LINE credential for link:", error.response ? error.response.data : error.message);
+        res.status(500).json({
+            success: false,
+            error: "Failed to get LINE credential",
+            details: error.response ? error.response.data : error.message
+        });
+    }
+});
+
+/**
  * LINE Login - Exchange Code for Token (Improved Version)
  * This follows the correct approach: check by email first, then either link or create
  */
@@ -1516,6 +1628,297 @@ app.post('/api/auth/line/process-login', async (req, res) => {
     });
   }
 });
+
+/**
+ * LINE Login - Update Custom Claims
+ * อัปเดตข้อมูล LINE (เช่น userId, displayName) เข้าไปใน Custom Claims ของ Firebase User
+ */
+app.post('/api/auth/line/update-claims', async (req, res) => {
+  try {
+    const { uid, lineAccessToken } = req.body;
+
+    if (!uid || !lineAccessToken) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Firebase UID and LINE access token are required' 
+      });
+    }
+
+    console.log(`🔄 Updating LINE claims for Firebase UID: ${uid}`);
+
+    // Step 1: Verify LINE access token and get profile
+    let lineProfile;
+    try {
+      const profileRes = await axios.get('https://api.line.me/v2/profile', {
+        headers: { 'Authorization': `Bearer ${lineAccessToken}` }
+      });
+      lineProfile = profileRes.data;
+      if (!lineProfile.userId) {
+        throw new Error('Invalid LINE profile data');
+      }
+      console.log(`✅ Fetched LINE profile for: ${lineProfile.displayName}`);
+    } catch (error) {
+      console.error('❌ Failed to verify LINE token or get profile:', error.response ? error.response.data : error.message);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid or expired LINE access token',
+        details: error.response ? error.response.data : error.message
+      });
+    }
+
+    // Step 2: Get current user claims to merge
+    const userRecord = await admin.auth().getUser(uid);
+    const existingClaims = userRecord.customClaims || {};
+
+    // Step 3: Set new custom claims
+    const newClaims = {
+      ...existingClaims,
+      lineUserId: lineProfile.userId,
+      lineDisplayName: lineProfile.displayName,
+      linePictureUrl: lineProfile.pictureUrl,
+      lineStatusMessage: lineProfile.statusMessage,
+      hasLineAccount: true,
+      lastLineUpdate: new Date().toISOString()
+    };
+    await admin.auth().setCustomUserClaims(uid, newClaims);
+    console.log(`✅ Set custom claims for UID: ${uid}`, newClaims);
+
+    // Step 4: (Optional) Update Firebase user profile as well
+    await admin.auth().updateUser(uid, {
+      displayName: userRecord.displayName || lineProfile.displayName, // Only update if not set
+      photoURL: userRecord.photoURL || lineProfile.pictureUrl // Only update if not set
+    });
+    console.log(`✅ Updated Firebase user profile for UID: ${uid}`);
+
+    // Step 5: Fetch and log the updated user record as requested
+    const updatedUserRecord = await admin.auth().getUser(uid);
+    console.log('✅✅✅ --- Updated Firebase User Record --- ✅✅✅');
+    console.log(JSON.stringify(updatedUserRecord.toJSON(), null, 2));
+    console.log('✅✅✅ ------------------------------------ ✅✅✅');
+
+    res.json({ 
+      success: true,
+      message: 'LINE user data successfully updated in Firebase claims.',
+      uid: uid,
+      updatedClaims: newClaims,
+      updatedRecord: updatedUserRecord.toJSON() // Also return the updated record in the response
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating LINE claims:', error);
+    let statusCode = 500;
+    if (error.code === 'auth/user-not-found') {
+      statusCode = 404;
+    }
+    res.status(statusCode).json({ 
+      success: false, 
+      error: 'Failed to update LINE claims',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * LINE Login - Update Custom Claims using Authorization Code
+ * This endpoint follows the user-provided logic flow diagram.
+ * It receives a code and UID, exchanges it for a token, and updates Firebase.
+ */
+app.post('/api/auth/line/update-claims-with-code', async (req, res) => {
+  try {
+    const { uid, code } = req.body;
+
+    if (!uid || !code) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Firebase UID and LINE authorization code are required' 
+      });
+    }
+
+    console.log(`🔄 [Flow] Updating claims for UID: ${uid} using auth code.`);
+
+    // Step 1: Exchange code for access token
+    console.log(`[Flow] Step 1: Exchanging code for token...`);
+    const tokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/token',
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: LINE_CONFIG.REDIRECT_URI, // Ensure this matches the redirect from client
+        client_id: LINE_CONFIG.CHANNEL_ID,
+        client_secret: LINE_CONFIG.CHANNEL_SECRET
+      }), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      }
+    );
+    const { access_token } = tokenResponse.data;
+    console.log(`[Flow] Step 1: Success. Got access token.`);
+
+    // Step 2: Get LINE profile using the access token
+    console.log(`[Flow] Step 2: Getting LINE profile...`);
+    const profileRes = await axios.get('https://api.line.me/v2/profile', {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    const lineProfile = profileRes.data;
+    console.log(`[Flow] Step 2: Success. Got profile for ${lineProfile.displayName}.`);
+
+    // Step 3: Get current user record to merge claims
+    const userRecord = await admin.auth().getUser(uid);
+    const existingClaims = userRecord.customClaims || {};
+    console.log('[Flow] Step 3: Success. Got user record. Current claims:', existingClaims);
+
+    // Step 4: Update Firebase user profile (displayName, photoURL)
+    console.log(`[Flow] Step 4: Updating Firebase user profile...`);
+    await admin.auth().updateUser(uid, {
+      displayName: userRecord.displayName || lineProfile.displayName,
+      photoURL: userRecord.photoURL || lineProfile.pictureUrl
+    });
+    console.log(`[Flow] Step 4: Success.`);
+
+    // Step 5: Set new custom claims
+    console.log(`[Flow] Step 5: Preparing new custom claims...`);
+    const newClaims = {
+      ...existingClaims,
+      lineUserId: lineProfile.userId,
+      lineDisplayName: lineProfile.displayName,
+      linePictureUrl: lineProfile.pictureUrl,
+      lineStatusMessage: lineProfile.statusMessage,
+      hasLineAccount: true,
+      lastLineUpdate: new Date().toISOString()
+    };
+    console.log('[Flow] Step 5: New claims to be set:', newClaims);
+    await admin.auth().setCustomUserClaims(uid, newClaims);
+    console.log(`[Flow] Step 5: Success. Claims have been set on Firebase.`);
+
+    // Final Step: Log the full updated record
+    const updatedUserRecord = await admin.auth().getUser(uid);
+    console.log('✅✅✅ [Flow] --- Updated Firebase User Record --- ✅✅✅');
+    console.log(JSON.stringify(updatedUserRecord.toJSON(), null, 2));
+    console.log('✅✅✅ ----------------------------------------- ✅✅✅');
+
+    res.json({ 
+      success: true,
+      message: 'LINE user data successfully updated in Firebase claims via new flow.',
+      uid: uid,
+      updatedClaims: newClaims,
+      userRecord: updatedUserRecord.toJSON() // ส่ง User Record ที่อัปเดตแล้วกลับไปด้วย
+    });
+
+  } catch (error) {
+    console.error('❌ [Flow] Error updating LINE claims with code:', error.response ? error.response.data : error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update LINE claims using the new flow.',
+      details: error.response ? error.response.data : error.message 
+    });
+  }
+});
+
+/**
+ * Unlink LINE Account from Firebase User
+ * เคลียร์ Custom Claims และข้อมูลโปรไฟล์ที่เกี่ยวข้องกับ LINE
+ */
+app.post('/api/auth/line/unlink', async (req, res) => {
+  try {
+    const { uid } = req.body;
+
+    if (!uid) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Firebase UID is required' 
+      });
+    }
+
+    console.log(`🔗 Unlinking LINE account for Firebase UID: ${uid}`);
+
+    // Step 1: Get the user and their current claims
+    const userRecord = await admin.auth().getUser(uid);
+    const existingClaims = userRecord.customClaims || {};
+
+    // Step 2: Remove only the LINE-related claims, preserving others
+    const claimsToKeep = { ...existingClaims };
+    delete claimsToKeep.lineUserId;
+    delete claimsToKeep.lineDisplayName;
+    delete claimsToKeep.linePictureUrl;
+    delete claimsToKeep.lineStatusMessage;
+    delete claimsToKeep.hasLineAccount;
+    delete claimsToKeep.lastLineUpdate;
+    
+    await admin.auth().setCustomUserClaims(uid, claimsToKeep);
+    console.log(`✅ Cleared LINE custom claims for UID: ${uid}. Remaining claims:`, claimsToKeep);
+
+    // Step 3: (Optional) Clear user profile fields that might have been set by LINE.
+    // Note: This is a destructive action. It will clear the display name and photo,
+    // even if they were set manually. Consider a more nuanced approach if needed.
+    await admin.auth().updateUser(uid, {
+      displayName: null, // Or revert to a previous name if stored elsewhere
+      photoURL: null
+    });
+    console.log(`✅ Cleared profile displayName and photoURL for UID: ${uid}`);
+
+    res.json({ 
+      success: true,
+      message: 'LINE account successfully unlinked and claims cleared.'
+    });
+
+  } catch (error) {
+    console.error('❌ Error unlinking LINE account:', error);
+    let statusCode = 500;
+    if (error.code === 'auth/user-not-found') {
+      statusCode = 404;
+    }
+    res.status(statusCode).json({ 
+      success: false, 
+      error: 'Failed to unlink LINE account',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * Get full Firebase user record by UID
+ * This is used by the frontend to display detailed user information.
+ */
+app.get('/api/auth/user-record/:uid', async (req, res) => {
+  try {
+    const { uid } = req.params;
+    console.log(`📊 [GET] /api/auth/user-record/${uid}`);
+    console.log(`📊 Origin: ${req.headers.origin}`);
+    
+    if (!uid) {
+      return res.status(400).json({ success: false, error: 'User UID is required' });
+    }
+
+    console.log(`📊 Fetching full user record for UID: ${uid}`);
+    const userRecord = await admin.auth().getUser(uid);
+
+    // ตั้งค่า CORS headers
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    res.json({
+      success: true,
+      userRecord: userRecord.toJSON(), // Send the JSON representation
+      customClaims: userRecord.customClaims || {}
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching user record:', error);
+    let statusCode = 500;
+    if (error.code === 'auth/user-not-found') {
+      statusCode = 404;
+    }
+    
+    // ตั้งค่า CORS headers สำหรับ error response ด้วย
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    res.status(statusCode).json({ 
+      success: false, 
+      error: 'Failed to fetch user record',
+      details: error.message 
+    });
+  }
+});
+
 
 /**
  * LINE Login - Logout
